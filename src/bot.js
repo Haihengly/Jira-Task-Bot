@@ -26,11 +26,11 @@ function createBot() {
     bot.command('inprogress', (ctx) => handleTasks(ctx, 'In Progress'));
     bot.command('done', (ctx) => handleTasks(ctx, 'Done'));
 
-    // Fallback handler for unrecognized text messages
+    // Fallback handler for unrecognized messages (text, photos, voice notes, stickers, documents, etc.)
     // Placed after all command handlers so it only fires when no command matches
-    bot.on('text', (ctx) => {
+    bot.on('message', (ctx) => {
         return ctx.reply(
-            `ការបញ្ជូលមិនត្រូវទម្រង់ ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
+            `ការបញ្ជូលមិនត្រូវទម្រង់ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
         );
     });
 

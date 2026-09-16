@@ -38,7 +38,7 @@ async function handleRegister(ctx) {
         }
 
         replyMessage +=
-            `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${jiraUser.displayName || email})។\n\n` +
+            `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${jiraUser.displayName || email}) ។\n\n` +
             `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
             `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
             `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
