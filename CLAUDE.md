@@ -20,14 +20,15 @@ A 1-on-1 Telegram bot that integrates with Jira Cloud for staff task tracking.
 ```
 jira-telegram-bot/
 ├── src/
-│   ├── bot.js              # Telegraf setup, registers command handlers
+│   ├── bot.js              # Telegraf setup, registers command handlers & fallback
 │   ├── commands/
+│   │   ├── help.js         # /help and start message definitions
 │   │   ├── register.js     # /register logic (Jira user lookup + DB mapping)
-│   │   └── tasks.js        # /todo, /inprogress, /done (custom urgency sorting & formatting)
+│   │   └── tasks.js        # /todo, /inprogress, /done (urgency sorting & Khmer formatting)
 │   ├── jira/
 │   │   └── client.js       # Isolated Jira API client (with dynamic fields param)
 │   ├── db/
-│   │   ├── db.js           # SQLite connection & schema initialization
+│   │   └── db.js           # SQLite connection & schema initialization
 │   │   └── mappings.js     # User mapping persistence functions
 │   └── index.js            # Main entry point (loads .env, sets command menu, launches bot)
 ├── bot-data/               # Local bind mount directory for SQLite (UID 1000)
@@ -66,8 +67,10 @@ All requests authenticate using Basic Auth (`JIRA_EMAIL:JIRA_API_TOKEN`).
 
 ### Phase 1: Complete ✅
 - `/register <jira_email>`: Maps Telegram user to Jira `accountId`.
-- `/todo` & `/inprogress`: Lists assigned tasks grouped and sorted by urgency (Overdue > Soonest > No Date), showing a standard 5-level priority emoji and formatted due dates.
-- `/done`: Simplifies to a clean, alphabetically sorted list of completed tasks.
+- `/todo` & `/inprogress`: Lists assigned tasks sorted by urgency (Overdue > Soonest > No Date) with Khmer localization, 5-level priority emojis (`ខ្ពស់បំផុត` 🔴, `ខ្ពស់` 🟠, `មធ្យម` 🟡, `ទាប` 🔵, `ទាបបំផុត` ⚪, `គ្មាន` ⚪), and formatted due dates with merged overdue flags (`⚠️ ផុតកំណត់`).
+- `/done`: Simplifies to a clean, alphabetically sorted list of completed tasks (`fields=summary`).
+- `/help`: Centralized help message in Khmer explaining all commands.
+- Catch-all fallback for unrecognized messages directing users to `/help`.
 - Native Telegram command menu registered via `bot.telegram.setMyCommands()`.
 - Containerized using Docker & Docker Compose with persistent bind mount storage.
 - Validated and tested working in Telegram.

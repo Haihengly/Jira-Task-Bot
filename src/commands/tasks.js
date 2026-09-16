@@ -18,7 +18,7 @@ async function handleTasks(ctx, status) {
             );
         }
 
-        await ctx.reply(`កំពុងទាញយកកិច្ចការ "${status}" ពី Jira...`);
+        await ctx.reply(`កំពុងទាញយកកិច្ចការ...`);
 
         const isDone = status === 'Done';
         const fields = isDone ? 'summary' : 'summary,status,assignee,priority,duedate';
@@ -30,7 +30,14 @@ async function handleTasks(ctx, status) {
         }
 
         const baseUrl = process.env.JIRA_BASE_URL.replace(/\/+$/, '');
-        let message = `📋 *Tasks - ${status}* (${issues.length}):\n\n`;
+
+        // Khmer headers
+        let headerStatus = status;
+        if (status === 'To Do') headerStatus = 'ត្រូវធ្វើ';
+        else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ';
+        else if (status === 'Done') headerStatus = 'បានធ្វើរួច';
+
+        let message = `📋 *កិច្ចការ${headerStatus}* (${issues.length}):\n\n`;
 
         if (isDone) {
             // Sort alphabetically by issue key
@@ -81,17 +88,17 @@ async function handleTasks(ctx, status) {
 
                 const priorityName = issue.fields?.priority?.name || 'None';
                 const dueDate = issue.fields?.duedate;
-                const emoji = getPriorityEmoji(priorityName);
+                const { emoji, label } = getKhmerPriority(priorityName);
                 const formattedDueDate = formatDueDate(dueDate);
 
                 const isOverdue = dueDate && dueDate < today;
                 let dueText = '';
                 if (formattedDueDate) {
-                    dueText = ` | Due: ${formattedDueDate}${isOverdue ? ' ⚠️ Overdue' : ''}`;
+                    dueText = ` | ថ្ងៃកំណត់៖ ${formattedDueDate}${isOverdue ? ' ⚠️ ផុតកំណត់' : ''}`;
                 }
 
                 message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
-                message += `   ${emoji} ${priorityName}${dueText}\n\n`;
+                message += `   ${emoji} ${label}${dueText}\n\n`;
             });
         }
 
@@ -110,18 +117,21 @@ function getTodayDateString() {
     return `${year}-${month}-${day}`;
 }
 
-function getPriorityEmoji(priorityName) {
-    if (!priorityName) return '⚪';
+function getKhmerPriority(priorityName) {
+    if (!priorityName || priorityName.toLowerCase() === 'none') {
+        return { emoji: '⚪', label: 'គ្មាន' };
+    }
+
     const lower = priorityName.toLowerCase();
 
     // Exact or substring matches, ordered specifically to prevent 'highest' triggering 'high'
-    if (lower.includes('highest')) return '🔴';
-    if (lower.includes('high')) return '🟠';
-    if (lower.includes('medium')) return '🟡';
-    if (lower.includes('lowest')) return '⚪';
-    if (lower.includes('low')) return '🔵';
+    if (lower.includes('highest')) return { emoji: '🔴', label: 'ខ្ពស់បំផុត' };
+    if (lower.includes('high')) return { emoji: '🟠', label: 'ខ្ពស់' };
+    if (lower.includes('medium')) return { emoji: '🟡', label: 'មធ្យម' };
+    if (lower.includes('lowest')) return { emoji: '⚪', label: 'ទាបបំផុត' };
+    if (lower.includes('low')) return { emoji: '🔵', label: 'ទាប' };
 
-    return '⚪';
+    return { emoji: '⚪', label: 'គ្មាន' };
 }
 
 function formatDueDate(dueDateStr) {
