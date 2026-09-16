@@ -18,8 +18,6 @@ async function handleTasks(ctx, status) {
             );
         }
 
-        await ctx.reply(`កំពុងទាញយកកិច្ចការ...`);
-
         const isDone = status === 'Done';
         const fields = isDone ? 'summary' : 'summary,status,assignee,priority,duedate';
 
