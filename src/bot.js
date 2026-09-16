@@ -1,6 +1,7 @@
 const { Telegraf } = require('telegraf');
 const { handleRegister } = require('./commands/register');
 const { handleTasks } = require('./commands/tasks');
+const { handleHelp, getHelpMessage } = require('./commands/help');
 
 function createBot() {
     const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -12,21 +13,26 @@ function createBot() {
 
     // Global /start command
     bot.start((ctx) => {
-        ctx.reply(
-            `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
-            `ពាក្យបញ្ជាដែលអាចប្រើបាន:\n` +
-            `/register <jira_email> - ភ្ជាប់គណនី Jira របស់អ្នក\n` +
-            `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
-            `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
-            `/done - មើលកិច្ចការដែលបានធ្វើរួច`
-        );
+        return ctx.reply(getHelpMessage());
     });
 
-    // Register commands
+    // /help command
+    bot.help(handleHelp);
+    bot.command('help', handleHelp);
+
+    // Register primary commands
     bot.command('register', handleRegister);
     bot.command('todo', (ctx) => handleTasks(ctx, 'To Do'));
     bot.command('inprogress', (ctx) => handleTasks(ctx, 'In Progress'));
     bot.command('done', (ctx) => handleTasks(ctx, 'Done'));
+
+    // Fallback handler for unrecognized text messages
+    // Placed after all command handlers so it only fires when no command matches
+    bot.on('text', (ctx) => {
+        return ctx.reply(
+            `ការបញ្ជូលមិនត្រូវទម្រង់ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
+        );
+    });
 
     return bot;
 }

@@ -23,9 +23,9 @@ jira-telegram-bot/
 │   ├── bot.js              # Telegraf setup, registers command handlers
 │   ├── commands/
 │   │   ├── register.js     # /register logic (Jira user lookup + DB mapping)
-│   │   └── tasks.js        # /todo, /inprogress, /done (shared JQL search handler)
+│   │   └── tasks.js        # /todo, /inprogress, /done (custom urgency sorting & formatting)
 │   ├── jira/
-│   │   └── client.js       # Isolated Jira API client (Basic Auth)
+│   │   └── client.js       # Isolated Jira API client (with dynamic fields param)
 │   ├── db/
 │   │   ├── db.js           # SQLite connection & schema initialization
 │   │   └── mappings.js     # User mapping persistence functions
@@ -54,8 +54,9 @@ All requests authenticate using Basic Auth (`JIRA_EMAIL:JIRA_API_TOKEN`).
    - Returns `[]` if no user matches or if directory search permissions are missing.
 3. `GET {JIRA_BASE_URL}/rest/api/3/search/jql`
    - Used by `/todo`, `/inprogress`, `/done`.
-   - Query params: `jql=assignee = "<accountId>" AND status = "<status>"`, `fields=summary,status,assignee`.
-   - Response contains an `issues` array where each item has `key` and `fields.summary`.
+   - Query params: `jql=assignee = "<accountId>" AND status = "<status>"`.
+   - Dynamic `fields` param: `/done` requests just `summary` (lean), others request `summary,status,assignee,priority,duedate`.
+   - Response contains an `issues` array where each item has `key` and requested `fields.*`.
 
 > ⚠️ **CRITICAL NOTE**: The legacy endpoint `/rest/api/3/search` is deprecated and removed in Jira Cloud. **Always use `/rest/api/3/search/jql`**.
 
@@ -65,9 +66,8 @@ All requests authenticate using Basic Auth (`JIRA_EMAIL:JIRA_API_TOKEN`).
 
 ### Phase 1: Complete ✅
 - `/register <jira_email>`: Maps Telegram user to Jira `accountId`.
-- `/todo`: Lists assigned Jira issues with status `"To Do"`.
-- `/inprogress`: Lists assigned Jira issues with status `"In Progress"`.
-- `/done`: Lists assigned Jira issues with status `"Done"`.
+- `/todo` & `/inprogress`: Lists assigned tasks grouped and sorted by urgency (Overdue > Soonest > No Date), showing a standard 5-level priority emoji and formatted due dates.
+- `/done`: Simplifies to a clean, alphabetically sorted list of completed tasks.
 - Native Telegram command menu registered via `bot.telegram.setMyCommands()`.
 - Containerized using Docker & Docker Compose with persistent bind mount storage.
 - Validated and tested working in Telegram.

@@ -19,7 +19,11 @@ async function handleTasks(ctx, status) {
         }
 
         await ctx.reply(`កំពុងទាញយកកិច្ចការ "${status}" ពី Jira...`);
-        const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status);
+
+        const isDone = status === 'Done';
+        const fields = isDone ? 'summary' : 'summary,status,assignee,priority,duedate';
+
+        const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
 
         if (!issues || issues.length === 0) {
             return ctx.reply(`គ្មានភារកិច្ចណាមួយត្រូវបានរកឃើញដោយមានស្ថានភាព "${status}" ទេ។`);
@@ -28,20 +32,104 @@ async function handleTasks(ctx, status) {
         const baseUrl = process.env.JIRA_BASE_URL.replace(/\/+$/, '');
         let message = `📋 *Tasks - ${status}* (${issues.length}):\n\n`;
 
-        issues.forEach((issue, index) => {
-            const issueKey = issue.key;
-            const summary = issue.fields?.summary || 'No summary';
-            const issueUrl = `${baseUrl}/browse/${issueKey}`;
+        if (isDone) {
+            // Sort alphabetically by issue key
+            issues.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
 
-            // Markdown formatted output
-            message += `${index + 1}. [${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
-        });
+            issues.forEach((issue) => {
+                const issueKey = issue.key;
+                const summary = issue.fields?.summary || 'No summary';
+                const issueUrl = `${baseUrl}/browse/${issueKey}`;
+
+                message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n\n`;
+            });
+        } else {
+            const today = getTodayDateString();
+
+            // Sort by urgency:
+            // 1. Overdue tasks first (duedate < today)
+            // 2. Upcoming tasks (duedate >= today, soonest first)
+            // 3. Tasks without a due date last
+            issues.sort((a, b) => {
+                const dueA = a.fields?.duedate;
+                const dueB = b.fields?.duedate;
+
+                const getCategory = (due) => {
+                    if (!due) return 3;
+                    if (due < today) return 1;
+                    return 2;
+                };
+
+                const catA = getCategory(dueA);
+                const catB = getCategory(dueB);
+
+                if (catA !== catB) {
+                    return catA - catB;
+                }
+
+                if (dueA && dueB) {
+                    return dueA.localeCompare(dueB);
+                }
+
+                return (a.key || '').localeCompare(b.key || '');
+            });
+
+            issues.forEach((issue) => {
+                const issueKey = issue.key;
+                const summary = issue.fields?.summary || 'No summary';
+                const issueUrl = `${baseUrl}/browse/${issueKey}`;
+
+                const priorityName = issue.fields?.priority?.name || 'None';
+                const dueDate = issue.fields?.duedate;
+                const emoji = getPriorityEmoji(priorityName);
+                const formattedDueDate = formatDueDate(dueDate);
+
+                const isOverdue = dueDate && dueDate < today;
+                let dueText = '';
+                if (formattedDueDate) {
+                    dueText = ` | Due: ${formattedDueDate}${isOverdue ? ' ⚠️ Overdue' : ''}`;
+                }
+
+                message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
+                message += `   ${emoji} ${priorityName}${dueText}\n\n`;
+            });
+        }
 
         return ctx.replyWithMarkdown(message, { disable_web_page_preview: true });
     } catch (error) {
         console.error(`Error handling task command for status "${status}":`, error);
         return ctx.reply('An error occurred while fetching your Jira tasks. Please try again later.');
     }
+}
+
+function getTodayDateString() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function getPriorityEmoji(priorityName) {
+    if (!priorityName) return '⚪';
+    const lower = priorityName.toLowerCase();
+
+    // Exact or substring matches, ordered specifically to prevent 'highest' triggering 'high'
+    if (lower.includes('highest')) return '🔴';
+    if (lower.includes('high')) return '🟠';
+    if (lower.includes('medium')) return '🟡';
+    if (lower.includes('lowest')) return '⚪';
+    if (lower.includes('low')) return '🔵';
+
+    return '⚪';
+}
+
+function formatDueDate(dueDateStr) {
+    if (!dueDateStr) return null;
+    const [year, month, day] = dueDateStr.split('-').map(Number);
+    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    if (!month || isNaN(month) || month < 1 || month > 12) return dueDateStr;
+    return `${monthNames[month - 1]} ${day}`;
 }
 
 // Basic markdown escaper for common characters that could break parsing

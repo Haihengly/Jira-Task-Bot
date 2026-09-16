@@ -10,7 +10,8 @@ async function start() {
             { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
             { command: 'todo', description: 'មើលកិច្ចការត្រូវធ្វើ' },
             { command: 'inprogress', description: 'មើលកិច្ចការកំពុងធ្វើ' },
-            { command: 'done', description: 'មើលកិច្ចការដែលបានធ្វើរួច' }
+            { command: 'done', description: 'មើលកិច្ចការដែលបានធ្វើរួច' },
+            { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
         ]);
 
         // Graceful stop listeners
