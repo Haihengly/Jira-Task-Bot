@@ -5,6 +5,14 @@ async function start() {
     try {
         const bot = createBot();
 
+        // Set Telegram command menu
+        await bot.telegram.setMyCommands([
+            { command: 'register', description: 'Link your Telegram to your Jira account' },
+            { command: 'todo', description: 'View your To Do tasks' },
+            { command: 'inprogress', description: 'View your In Progress tasks' },
+            { command: 'done', description: 'View your Done tasks' }
+        ]);
+
         // Graceful stop listeners
         process.once('SIGINT', () => bot.stop('SIGINT'));
         process.once('SIGTERM', () => bot.stop('SIGTERM'));
