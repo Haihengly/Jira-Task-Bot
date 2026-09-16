@@ -4,3 +4,8 @@ data/*.sqlite
 data/*.sqlite3
 data/*.db
 data/
+
+.vscode/
+bot-data/
+CLAUDE.md
+explain.md
