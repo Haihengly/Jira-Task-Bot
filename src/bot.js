@@ -1,5 +1,5 @@
 const { Telegraf } = require('telegraf');
-const { handleRegister } = require('./commands/register');
+const { handleRegister, handleConfirmRegister, handleCancelRegister } = require('./commands/register');
 const { handleTasks } = require('./commands/tasks');
 const { handleHelp, getHelpMessage } = require('./commands/help');
 
@@ -26,8 +26,12 @@ function createBot() {
     bot.command('inprogress', (ctx) => handleTasks(ctx, 'In Progress'));
     bot.command('done', (ctx) => handleTasks(ctx, 'Done'));
 
+    // Handle inline button callbacks for registration confirmation
+    bot.action('confirm_register', handleConfirmRegister);
+    bot.action('cancel_register', handleCancelRegister);
+
     // Fallback handler for unrecognized messages (text, photos, voice notes, stickers, documents, etc.)
-    // Placed after all command handlers so it only fires when no command matches
+    // Placed after all command handlers so it only fires when nothing else matched
     bot.on('message', (ctx) => {
         return ctx.reply(
             `ការបញ្ជូលមិនត្រូវទម្រង់ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`

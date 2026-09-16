@@ -1,5 +1,9 @@
+const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
 const { saveMapping, getMappingByTelegramId } = require('../db/mappings');
+
+// In-memory store for pending confirmations: telegramUserId -> { chatId, accountId, email, displayName, existingMapping }
+const pendingRegistrations = new Map();
 
 async function handleRegister(ctx) {
     const text = ctx.message?.text || '';
@@ -28,30 +32,79 @@ async function handleRegister(ctx) {
         }
 
         const existingMapping = await getMappingByTelegramId(telegramUserId);
+        const displayName = jiraUser.displayName || email;
 
-        await saveMapping(telegramUserId, chatId, jiraUser.accountId, email);
+        // Save to in-memory pending confirmations (overwrites any previous pending confirmation)
+        pendingRegistrations.set(telegramUserId, {
+            chatId,
+            accountId: jiraUser.accountId,
+            email,
+            displayName,
+            existingMapping
+        });
 
-        let replyMessage = `ចុះឈ្មោះជោគជ័យ! 🎉\n`;
-
-        if (existingMapping && existingMapping.jira_email && existingMapping.jira_email.toLowerCase() !== email.toLowerCase()) {
-            replyMessage += `គណនី Jira របស់អ្នកត្រូវបានផ្លាស់ប្តូរពី ${existingMapping.jira_email} ទៅ ${email}។\n`;
-        }
-
-        replyMessage +=
-            `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${jiraUser.displayName || email}) ។\n\n` +
-            `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
-            `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
-            `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
-            `/done - មើលកិច្ចការដែលបានធ្វើរួច\n` +
-            `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
-
-        return ctx.reply(replyMessage);
+        return ctx.reply(
+            `រកឃើញគណនី Jira: ${displayName} (${email})\n` +
+            `តើនេះជាអ្នកមែនទេ? សូមជ្រើសរើសខាងក្រោម៖`,
+            Markup.inlineKeyboard([
+                Markup.button.callback('✅ បាទ/ចាស', 'confirm_register'),
+                Markup.button.callback('❌ ទេ', 'cancel_register')
+            ])
+        );
     } catch (error) {
         console.error('Error during /register command:', error);
         return ctx.reply('An error occurred while linking your Jira account. Please try again later.');
     }
 }
 
+async function handleConfirmRegister(ctx) {
+    await ctx.answerCbQuery().catch(() => {});
+
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    if (!telegramUserId || !pendingRegistrations.has(telegramUserId)) {
+        return ctx.editMessageText('មិនមានការចុះឈ្មោះដែលកំពុងរង់ចាំនោះទេ។ សូមប្រើ /register ម្តងទៀត។').catch(() => {});
+    }
+
+    const pending = pendingRegistrations.get(telegramUserId);
+    pendingRegistrations.delete(telegramUserId);
+
+    try {
+        await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email);
+
+        let replyMessage = `ចុះឈ្មោះជោគជ័យ! 🎉\n`;
+
+        if (pending.existingMapping && pending.existingMapping.jira_email && pending.existingMapping.jira_email.toLowerCase() !== pending.email.toLowerCase()) {
+            replyMessage += `គណនី Jira របស់អ្នកត្រូវបានផ្លាស់ប្តូរពី ${pending.existingMapping.jira_email} ទៅ ${pending.email}។\n`;
+        }
+
+        replyMessage +=
+            `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${pending.displayName || pending.email})។\n\n` +
+            `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
+            `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
+            `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
+            `/done - មើលកិច្ចការដែលបានធ្វើរួច\n` +
+            `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
+
+        return ctx.editMessageText(replyMessage);
+    } catch (error) {
+        console.error('Error saving mapping during confirmation:', error);
+        return ctx.editMessageText('An error occurred while linking your Jira account. Please try again later.');
+    }
+}
+
+async function handleCancelRegister(ctx) {
+    await ctx.answerCbQuery().catch(() => {});
+
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    if (telegramUserId) {
+        pendingRegistrations.delete(telegramUserId);
+    }
+
+    return ctx.editMessageText('ការចុះឈ្មោះត្រូវបានលុបចោល។ សូមប្រើ /register ម្តងទៀត។').catch(() => {});
+}
+
 module.exports = {
-    handleRegister
+    handleRegister,
+    handleConfirmRegister,
+    handleCancelRegister
 };
