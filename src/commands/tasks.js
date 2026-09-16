@@ -13,16 +13,16 @@ async function handleTasks(ctx, status) {
 
         if (!mapping || !mapping.jira_account_id) {
             return ctx.reply(
-                'You have not registered your Jira account yet!\n' +
-                'Please use /register <jira_email> to link your account first.'
+                'អ្នកមិនទាន់បានចុះឈ្មោះគណនី Jira របស់អ្នកនៅឡើយទេ!\n' +
+                'សូមប្រើ /register <jira_email> ដើម្បីភ្ជាប់គណនីរបស់អ្នកជាមុនសិន។'
             );
         }
 
-        await ctx.reply(`Fetching your "${status}" tasks from Jira...`);
+        await ctx.reply(`កំពុងទាញយកកិច្ចការ "${status}" ពី Jira...`);
         const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status);
 
         if (!issues || issues.length === 0) {
-            return ctx.reply(`No tasks found with status "${status}". Great job! 👍`);
+            return ctx.reply(`គ្មានភារកិច្ចណាមួយត្រូវបានរកឃើញដោយមានស្ថានភាព "${status}" ទេ។`);
         }
 
         const baseUrl = process.env.JIRA_BASE_URL.replace(/\/+$/, '');

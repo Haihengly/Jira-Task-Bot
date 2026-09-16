@@ -41,6 +41,36 @@ npm start
 
 ---
 
+## Running with Docker / Docker Compose
+
+### 1. Host Setup (One-time)
+Create the data directory and ensure the container's user (UID 1000) has permission to write to it:
+```bash
+mkdir -p ./bot-data
+sudo chown -R 1000:1000 ./bot-data
+```
+
+### 2. Build and Start
+Build the image and start the bot container in detached mode:
+```bash
+docker compose up -d --build
+```
+
+### 3. View Logs
+Follow the live application output to ensure the bot connected:
+```bash
+docker compose logs -f
+```
+
+### 4. Stop the Bot
+Stop the running containers:
+```bash
+docker compose down
+```
+*(Note: Data is saved to the local `./bot-data` bind mount and persists across container rebuilds/restarts.)*
+
+---
+
 ## Project Structure
 ```
 jira-telegram-bot/

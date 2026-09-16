@@ -13,12 +13,12 @@ function createBot() {
     // Global /start command
     bot.start((ctx) => {
         ctx.reply(
-            `Welcome to Jira Task Tracker Bot! 👋\n\n` +
-            `Available Commands:\n` +
-            `/register <jira_email> - Link your Jira account\n` +
-            `/todo - View tasks to do\n` +
-            `/inprogress - View tasks in progress\n` +
-            `/done - View completed tasks`
+            `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
+            `ពាក្យបញ្ជាដែលអាចប្រើបាន:\n` +
+            `/register <jira_email> - ភ្ជាប់គណនី Jira របស់អ្នក\n` +
+            `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
+            `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
+            `/done - មើលកិច្ចការដែលបានធ្វើរួច`
         );
     });
 

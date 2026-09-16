@@ -3,7 +3,10 @@
 ## Project Overview
 A 1-on-1 Telegram bot that integrates with Jira Cloud for staff task tracking.
 - **Runtime & Frameworks**: Node.js, Telegraf (Telegram Bot library), Axios (Jira API), SQLite3 (storage), Dotenv.
-- **Database**: SQLite (`data/mappings.sqlite`), mapping `telegram_user_id`, `chat_id`, `jira_account_id`, and `jira_email`.
+- **Deployment**: Docker & Docker Compose (`node:20-alpine`, non-root user `node` UID 1000).
+- **Database**: SQLite, mapping `telegram_user_id`, `chat_id`, `jira_account_id`, and `jira_email`.
+  - Persisted locally via bind mount `./bot-data:/app/data` (or `./data` for local runs).
+  - Host folder must be owned by UID/GID 1000 (`sudo chown -R 1000:1000 ./bot-data`) to prevent `SQLITE_CANTOPEN` errors.
 
 ---
 
@@ -26,11 +29,15 @@ jira-telegram-bot/
 │   ├── db/
 │   │   ├── db.js           # SQLite connection & schema initialization
 │   │   └── mappings.js     # User mapping persistence functions
-│   └── index.js            # Main entry point (loads .env, launches bot)
-├── data/                   # SQLite database storage (gitignored)
+│   └── index.js            # Main entry point (loads .env, sets command menu, launches bot)
+├── bot-data/               # Local bind mount directory for SQLite (UID 1000)
+├── data/                   # Fallback local data directory
+├── .dockerignore
 ├── .env                    # Secrets and configuration (gitignored, do not overwrite)
 ├── .env.example
 ├── .gitignore
+├── docker-compose.yml
+├── Dockerfile
 ├── package.json
 └── README.md
 ```
@@ -61,6 +68,8 @@ All requests authenticate using Basic Auth (`JIRA_EMAIL:JIRA_API_TOKEN`).
 - `/todo`: Lists assigned Jira issues with status `"To Do"`.
 - `/inprogress`: Lists assigned Jira issues with status `"In Progress"`.
 - `/done`: Lists assigned Jira issues with status `"Done"`.
+- Native Telegram command menu registered via `bot.telegram.setMyCommands()`.
+- Containerized using Docker & Docker Compose with persistent bind mount storage.
 - Validated and tested working in Telegram.
 
 ### Phase 2: Not Started ⏳
