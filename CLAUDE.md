@@ -66,9 +66,10 @@ All requests authenticate using Basic Auth (`JIRA_EMAIL:JIRA_API_TOKEN`).
 ## Project Status & Phases
 
 ### Phase 1: Complete ✅
-- `/register <jira_email>`: Maps Telegram user to Jira `accountId`.
+- `/register <jira_email>`: Maps Telegram user to Jira `accountId`. Uses single-reply flow (no intermediate loading state).
 - `/todo` & `/inprogress`: Lists assigned tasks sorted by urgency (Overdue > Soonest > No Date) with Khmer localization, 5-level priority emojis (`ខ្ពស់បំផុត` 🔴, `ខ្ពស់` 🟠, `មធ្យម` 🟡, `ទាប` 🔵, `ទាបបំផុត` ⚪, `គ្មាន` ⚪), and formatted due dates with merged overdue flags (`⚠️ ផុតកំណត់`).
 - `/done`: Simplifies to a clean, alphabetically sorted list of completed tasks (`fields=summary`).
+- Empty States: Status-specific Khmer empty states for `/todo`, `/inprogress`, and `/done` (e.g., `មិនទាន់មានកិច្ចការត្រូវធ្វើនោះទេ។`) sent as a direct single reply.
 - `/help`: Centralized help message in Khmer explaining all commands.
 - Catch-all fallback for unrecognized messages directing users to `/help`.
 - Native Telegram command menu registered via `bot.telegram.setMyCommands()`.

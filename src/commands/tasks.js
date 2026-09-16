@@ -14,7 +14,7 @@ async function handleTasks(ctx, status) {
         if (!mapping || !mapping.jira_account_id) {
             return ctx.reply(
                 'អ្នកមិនទាន់បានចុះឈ្មោះគណនី Jira របស់អ្នកនៅឡើយទេ!\n' +
-                'សូមប្រើ /register <jira_email> ដើម្បីភ្ជាប់គណនីរបស់អ្នកជាមុនសិន។'
+                'សូមប្រើ /register jira@example.com ដើម្បីភ្ជាប់គណនីរបស់អ្នកជាមុនសិន។'
             );
         }
 
@@ -24,7 +24,12 @@ async function handleTasks(ctx, status) {
         const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
 
         if (!issues || issues.length === 0) {
-            return ctx.reply(`គ្មានភារកិច្ចណាមួយត្រូវបានរកឃើញដោយមានស្ថានភាព "${status}" ទេ។`);
+            let emptyMessage = '';
+            if (status === 'To Do') emptyMessage = 'មិនទាន់មានកិច្ចការត្រូវធ្វើនោះទេ។';
+            else if (status === 'In Progress') emptyMessage = 'មិនទាន់មានកិច្ចការកំពុងធ្វើនោះទេ។';
+            else if (status === 'Done') emptyMessage = 'មិនទាន់មានកិច្ចការដែលបានធ្វើរួចនោះទេ។ 👍';
+
+            return ctx.reply(emptyMessage);
         }
 
         const baseUrl = process.env.JIRA_BASE_URL.replace(/\/+$/, '');

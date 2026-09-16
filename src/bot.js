@@ -30,7 +30,7 @@ function createBot() {
     // Placed after all command handlers so it only fires when no command matches
     bot.on('text', (ctx) => {
         return ctx.reply(
-            `ការបញ្ជូលមិនត្រូវទម្រង់ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
+            `ការបញ្ជូលមិនត្រូវទម្រង់ ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
         );
     });
 
