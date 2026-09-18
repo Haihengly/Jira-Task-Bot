@@ -19,7 +19,7 @@ async function handleTasks(ctx, status) {
         }
 
         const isDone = status === 'Done';
-        const fields = isDone ? 'summary' : 'summary,status,assignee,priority,duedate';
+        const fields = isDone ? 'summary,project' : 'summary,status,assignee,priority,duedate,project';
 
         const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
 
@@ -40,70 +40,89 @@ async function handleTasks(ctx, status) {
         else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ';
         else if (status === 'Done') headerStatus = 'បានធ្វើរួច';
 
-        let message = `📋 *កិច្ចការ${headerStatus}* (${issues.length}):\n\n`;
+        let message = `📋 *កិច្ចការ${headerStatus}* (${issues.length}):\n`;
 
-        if (isDone) {
-            // Sort alphabetically by issue key
-            issues.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
+        // Group issues by project name
+        const groupedIssues = {};
+        issues.forEach(issue => {
+            const projectName = issue.fields?.project?.name || 'Unknown Project';
+            if (!groupedIssues[projectName]) {
+                groupedIssues[projectName] = [];
+            }
+            groupedIssues[projectName].push(issue);
+        });
 
-            issues.forEach((issue) => {
-                const issueKey = issue.key;
-                const summary = issue.fields?.summary || 'No summary';
-                const issueUrl = `${baseUrl}/browse/${issueKey}`;
+        // Sort project names alphabetically
+        const sortedProjectNames = Object.keys(groupedIssues).sort((a, b) => a.localeCompare(b));
 
-                message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n\n`;
-            });
-        } else {
-            const today = getTodayDateString();
+        const today = isDone ? null : getTodayDateString();
 
-            // Sort by urgency:
-            // 1. Overdue tasks first (duedate < today)
-            // 2. Upcoming tasks (duedate >= today, soonest first)
-            // 3. Tasks without a due date last
-            issues.sort((a, b) => {
-                const dueA = a.fields?.duedate;
-                const dueB = b.fields?.duedate;
+        sortedProjectNames.forEach(projectName => {
+            const projectIssues = groupedIssues[projectName];
 
-                const getCategory = (due) => {
-                    if (!due) return 3;
-                    if (due < today) return 1;
-                    return 2;
-                };
+            message += `\n🗂 *${escapeMarkdown(projectName)}*\n`;
 
-                const catA = getCategory(dueA);
-                const catB = getCategory(dueB);
+            if (isDone) {
+                // Sort alphabetically by issue key
+                projectIssues.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
 
-                if (catA !== catB) {
-                    return catA - catB;
-                }
+                projectIssues.forEach((issue) => {
+                    const issueKey = issue.key;
+                    const summary = issue.fields?.summary || 'No summary';
+                    const issueUrl = `${baseUrl}/browse/${issueKey}`;
 
-                if (dueA && dueB) {
-                    return dueA.localeCompare(dueB);
-                }
+                    message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n\n`;
+                });
+            } else {
+                // Sort by urgency:
+                // 1. Overdue tasks first (duedate < today)
+                // 2. Upcoming tasks (duedate >= today, soonest first)
+                // 3. Tasks without a due date last
+                projectIssues.sort((a, b) => {
+                    const dueA = a.fields?.duedate;
+                    const dueB = b.fields?.duedate;
 
-                return (a.key || '').localeCompare(b.key || '');
-            });
+                    const getCategory = (due) => {
+                        if (!due) return 3;
+                        if (due < today) return 1;
+                        return 2;
+                    };
 
-            issues.forEach((issue) => {
-                const issueKey = issue.key;
-                const summary = issue.fields?.summary || 'No summary';
-                const issueUrl = `${baseUrl}/browse/${issueKey}`;
+                    const catA = getCategory(dueA);
+                    const catB = getCategory(dueB);
 
-                const priorityName = issue.fields?.priority?.name || 'None';
-                const dueDate = issue.fields?.duedate;
-                const { emoji, label } = getKhmerPriority(priorityName);
-                const formattedDueDate = formatDueDate(dueDate);
+                    if (catA !== catB) {
+                        return catA - catB;
+                    }
 
-                const isOverdue = dueDate && dueDate < today;
-                let dueText = '';
-                if (formattedDueDate) {
-                    dueText = ` | ថ្ងៃកំណត់៖ ${formattedDueDate}${isOverdue ? ' ⚠️ ផុតកំណត់' : ''}`;
-                }
+                    if (dueA && dueB) {
+                        return dueA.localeCompare(dueB);
+                    }
 
-                message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
-                message += `   ${emoji} ${label}${dueText}\n\n`;
-            });
-        }
+                    return (a.key || '').localeCompare(b.key || '');
+                });
+
+                projectIssues.forEach((issue) => {
+                    const issueKey = issue.key;
+                    const summary = issue.fields?.summary || 'No summary';
+                    const issueUrl = `${baseUrl}/browse/${issueKey}`;
+
+                    const priorityName = issue.fields?.priority?.name || 'None';
+                    const dueDate = issue.fields?.duedate;
+                    const { emoji, label } = getKhmerPriority(priorityName);
+                    const formattedDueDate = formatDueDate(dueDate);
+
+                    const isOverdue = dueDate && dueDate < today;
+                    let dueText = '';
+                    if (formattedDueDate) {
+                        dueText = ` | ថ្ងៃកំណត់៖ ${formattedDueDate}${isOverdue ? ' ⚠️ ផុតកំណត់' : ''}`;
+                    }
+
+                    message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
+                    message += `   ${emoji} ${label}${dueText}\n\n`;
+                });
+            }
+        });
 
         return ctx.replyWithMarkdown(message, { disable_web_page_preview: true });
     } catch (error) {
