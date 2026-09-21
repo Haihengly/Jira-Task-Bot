@@ -26,7 +26,8 @@ function initDb() {
             telegram_user_id TEXT PRIMARY KEY,
             chat_id TEXT NOT NULL,
             jira_account_id TEXT NOT NULL,
-            jira_email TEXT NOT NULL
+            jira_email TEXT NOT NULL,
+            registered_at TEXT
         );
     `;
     db.run(schema, (err) => {
@@ -34,6 +35,17 @@ function initDb() {
             console.error('Error creating schema:', err.message);
         } else {
             console.log('Database schema initialized.');
+
+            // Adding a column safely for existing databases
+            db.run(`ALTER TABLE users ADD COLUMN registered_at TEXT`, (errAlter) => {
+                if (errAlter) {
+                    if (!errAlter.message.includes('duplicate column name')) {
+                        console.error('Error adding registered_at column:', errAlter.message);
+                    }
+                } else {
+                    console.log('Added registered_at column to users table.');
+                }
+            });
         }
     });
 }
