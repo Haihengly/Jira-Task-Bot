@@ -43,6 +43,24 @@ class JiraClient {
     }
 
     /**
+     * Get an issue by key
+     * @param {string} issueKey
+     * @param {string} [fields='summary,priority,duedate,project']
+     * @returns {Promise<Object|null>}
+     */
+    async getIssueByKey(issueKey, fields = 'summary,priority,duedate,project') {
+        try {
+            const response = await this.client.get(`/rest/api/3/issue/${issueKey}`, {
+                params: { fields }
+            });
+            return response.data;
+        } catch (error) {
+            console.error(`Error retrieving Jira issue ${issueKey}:`, error.response?.data || error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Search issues for a specific accountId and status
      * @param {string} accountId
      * @param {string} status 'To Do', 'In Progress', 'Done'

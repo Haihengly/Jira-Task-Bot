@@ -1,5 +1,6 @@
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
+const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('../utils');
 
 async function handleTasks(ctx, status) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
@@ -109,17 +110,10 @@ async function handleTasks(ctx, status) {
 
                     const priorityName = issue.fields?.priority?.name || 'None';
                     const dueDate = issue.fields?.duedate;
-                    const { emoji, label } = getKhmerPriority(priorityName);
-                    const formattedDueDate = formatDueDate(dueDate);
-
-                    const isOverdue = dueDate && dueDate < today;
-                    let dueText = '';
-                    if (formattedDueDate) {
-                        dueText = ` | ថ្ងៃកំណត់៖ ${formattedDueDate}${isOverdue ? ' ⚠️ ផុតកំណត់' : ''}`;
-                    }
+                    const priorityAndDueText = formatPriorityAndDue(priorityName, dueDate, { today });
 
                     message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
-                    message += `   ${emoji} ${label}${dueText}\n\n`;
+                    message += `   ${priorityAndDueText}\n\n`;
                 });
             }
         });
@@ -129,44 +123,6 @@ async function handleTasks(ctx, status) {
         console.error(`Error handling task command for status "${status}":`, error);
         return ctx.reply('An error occurred while fetching your Jira tasks. Please try again later.');
     }
-}
-
-function getTodayDateString() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function getKhmerPriority(priorityName) {
-    if (!priorityName || priorityName.toLowerCase() === 'none') {
-        return { emoji: '⚪', label: 'គ្មាន' };
-    }
-
-    const lower = priorityName.toLowerCase();
-
-    // Exact or substring matches, ordered specifically to prevent 'highest' triggering 'high'
-    if (lower.includes('highest')) return { emoji: '🔴', label: 'ខ្ពស់បំផុត' };
-    if (lower.includes('high')) return { emoji: '🟠', label: 'ខ្ពស់' };
-    if (lower.includes('medium')) return { emoji: '🟡', label: 'មធ្យម' };
-    if (lower.includes('lowest')) return { emoji: '⚪', label: 'ទាបបំផុត' };
-    if (lower.includes('low')) return { emoji: '🔵', label: 'ទាប' };
-
-    return { emoji: '⚪', label: 'គ្មាន' };
-}
-
-function formatDueDate(dueDateStr) {
-    if (!dueDateStr) return null;
-    const [year, month, day] = dueDateStr.split('-').map(Number);
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    if (!month || isNaN(month) || month < 1 || month > 12) return dueDateStr;
-    return `${monthNames[month - 1]} ${day}`;
-}
-
-// Basic markdown escaper for common characters that could break parsing
-function escapeMarkdown(text) {
-    return text.replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
 }
 
 module.exports = {

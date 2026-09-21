@@ -1,5 +1,7 @@
 const express = require('express');
 const { getMappingByJiraAccountId } = require('./db/mappings');
+const jiraClient = require('./jira/client');
+const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
 
 function startWebhookServer(bot) {
     const app = express();
@@ -22,16 +24,70 @@ function startWebhookServer(bot) {
 
                     if (mapping && mapping.chat_id) {
                         const issueKey = req.body.issue?.key;
-                        const summary = req.body.issue?.fields?.summary;
-                        const projectName = req.body.issue?.fields?.project?.name;
+                        let issueFields = req.body.issue?.fields;
 
-                        const message = `🔔 អ្នកត្រូវបានចាត់តាំងកិច្ចការថ្មី!\n🗂 ${projectName}\n${issueKey}: ${summary}`;
+                        // If priority, duedate, project, or summary is missing, fetch extra details
+                        if (issueKey && (!issueFields || issueFields.priority === undefined || issueFields.duedate === undefined || !issueFields.project || !issueFields.summary)) {
+                            try {
+                                const fetched = await jiraClient.getIssueByKey(issueKey, 'summary,priority,duedate,project');
+                                if (fetched && fetched.fields) {
+                                    issueFields = {
+                                        ...issueFields,
+                                        ...fetched.fields
+                                    };
+                                }
+                            } catch (error) {
+                                console.error(`Failed to fetch additional Jira issue fields for ${issueKey}:`, error.message);
+                            }
+                        }
+
+                        const baseUrl = (process.env.JIRA_BASE_URL || '').replace(/\/+$/, '');
+                        const issueUrl = baseUrl && issueKey ? `${baseUrl}/browse/${issueKey}` : '';
+                        const projectName = issueFields?.project?.name || 'Unknown Project';
+                        const summary = issueFields?.summary || 'No summary';
+                        const priorityName = issueFields?.priority?.name || 'None';
+                        const dueDate = issueFields?.duedate;
+                        const assignerName = req.body.user?.displayName || 'Unknown';
+                        const today = getTodayDateString();
+
+                        const priorityAndDueText = formatPriorityAndDue(priorityName, dueDate, {
+                            withPriorityLabel: true,
+                            alwaysShowDueDate: true,
+                            today
+                        });
+
+                        const formattedKey = issueUrl ? `[${issueKey}](${issueUrl})` : (issueKey || '');
+
+                        const message =
+                            `🔔 អ្នកត្រូវបានចាត់តាំងកិច្ចការថ្មី!\n\n` +
+                            `🗂 ${escapeMarkdown(projectName)}\n\n` +
+                            `ចាត់តាំងដោយ: ${escapeMarkdown(assignerName)}\n\n` +
+                            `${formattedKey}: ${escapeMarkdown(summary)}\n\n` +
+                            `${priorityAndDueText}`;
 
                         try {
-                            await bot.telegram.sendMessage(mapping.chat_id, message);
+                            await bot.telegram.sendMessage(mapping.chat_id, message, {
+                                parse_mode: 'Markdown',
+                                disable_web_page_preview: true
+                            });
                             console.log(`Delivered assignment notification for ${issueKey} to chat ${mapping.chat_id}`);
                         } catch (telegramErr) {
                             console.error(`Failed to send Telegram message to chat ${mapping.chat_id}:`, telegramErr.message || telegramErr);
+
+                            // Fallback to plain text if Markdown parsing fails
+                            try {
+                                const plainMessage =
+                                    `🔔 អ្នកត្រូវបានចាត់តាំងកិច្ចការថ្មី!\n\n` +
+                                    `🗂 ${projectName}\n\n` +
+                                    `ចាត់តាំងដោយ: ${assignerName}\n\n` +
+                                    `${issueKey}: ${summary}\n\n` +
+                                    `${priorityAndDueText.replace(' ⚠️ ផុតកំណត់', ' (ផុតកំណត់)')}`;
+                                await bot.telegram.sendMessage(mapping.chat_id, plainMessage, {
+                                    disable_web_page_preview: true
+                                });
+                            } catch (fallbackErr) {
+                                console.error(`Failed to send fallback Telegram message to chat ${mapping.chat_id}:`, fallbackErr.message || fallbackErr);
+                            }
                         }
                     } else {
                         console.log(`No Telegram mapping found for Jira account ${newAssigneeAccountId}`);
