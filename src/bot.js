@@ -1,6 +1,7 @@
 const { Telegraf } = require('telegraf');
 const { handleRegister, handleConfirmRegister, handleCancelRegister, handleVerificationMessage } = require('./commands/register');
 const { handleTasks } = require('./commands/tasks');
+const { handleMyAccount } = require('./commands/myaccount');
 const { handleHelp, getHelpMessage } = require('./commands/help');
 
 function createBot() {
@@ -22,6 +23,7 @@ function createBot() {
 
     // Register primary commands
     bot.command('register', handleRegister);
+    bot.command('myaccount', handleMyAccount);
     bot.command('todo', (ctx) => handleTasks(ctx, 'To Do'));
     bot.command('inprogress', (ctx) => handleTasks(ctx, 'In Progress'));
     bot.command('done', (ctx) => handleTasks(ctx, 'Done'));

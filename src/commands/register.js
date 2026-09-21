@@ -123,7 +123,7 @@ async function handleVerificationMessage(ctx) {
             pendingRegistrations.delete(telegramUserId);
 
             try {
-                await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email);
+                await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email, pending.displayName);
 
                 let replyMessage = `ចុះឈ្មោះជោគជ័យ! 🎉\n`;
 
@@ -134,6 +134,7 @@ async function handleVerificationMessage(ctx) {
                 replyMessage +=
                     `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${pending.displayName || pending.email})។\n\n` +
                     `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
+                    `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
                     `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
                     `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
                     `/done - មើលកិច្ចការដែលបានធ្វើរួច\n` +

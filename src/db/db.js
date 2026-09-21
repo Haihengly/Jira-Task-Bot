@@ -21,32 +21,45 @@ const db = new sqlite3.Database(dbPath, (err) => {
 });
 
 function initDb() {
-    const schema = `
-        CREATE TABLE IF NOT EXISTS users (
-            telegram_user_id TEXT PRIMARY KEY,
-            chat_id TEXT NOT NULL,
-            jira_account_id TEXT NOT NULL,
-            jira_email TEXT NOT NULL,
-            registered_at TEXT
-        );
-    `;
-    db.run(schema, (err) => {
-        if (err) {
-            console.error('Error creating schema:', err.message);
-        } else {
-            console.log('Database schema initialized.');
+    db.serialize(() => {
+        const schema = `
+            CREATE TABLE IF NOT EXISTS users (
+                telegram_user_id TEXT PRIMARY KEY,
+                chat_id TEXT NOT NULL,
+                jira_account_id TEXT NOT NULL,
+                jira_email TEXT NOT NULL,
+                display_name TEXT,
+                registered_at TEXT
+            );
+        `;
+        db.run(schema, (err) => {
+            if (err) {
+                console.error('Error creating schema:', err.message);
+            } else {
+                console.log('Database schema initialized.');
+            }
+        });
 
-            // Adding a column safely for existing databases
-            db.run(`ALTER TABLE users ADD COLUMN registered_at TEXT`, (errAlter) => {
-                if (errAlter) {
-                    if (!errAlter.message.includes('duplicate column name')) {
-                        console.error('Error adding registered_at column:', errAlter.message);
-                    }
-                } else {
-                    console.log('Added registered_at column to users table.');
+        // Adding columns safely for existing databases
+        db.run(`ALTER TABLE users ADD COLUMN registered_at TEXT`, (errAlter) => {
+            if (errAlter) {
+                if (!errAlter.message.includes('duplicate column name')) {
+                    console.error('Error adding registered_at column:', errAlter.message);
                 }
-            });
-        }
+            } else {
+                console.log('Added registered_at column to users table.');
+            }
+        });
+
+        db.run(`ALTER TABLE users ADD COLUMN display_name TEXT`, (errAlter) => {
+            if (errAlter) {
+                if (!errAlter.message.includes('duplicate column name')) {
+                    console.error('Error adding display_name column:', errAlter.message);
+                }
+            } else {
+                console.log('Added display_name column to users table.');
+            }
+        });
     });
 }
 

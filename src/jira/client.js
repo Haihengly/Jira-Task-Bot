@@ -82,6 +82,38 @@ class JiraClient {
             throw error;
         }
     }
+
+    /**
+     * Get task counts by assignee and statuses
+     * @param {string} accountId
+     * @returns {Promise<Object>} { todo: number, inProgress: number, done: number }
+     */
+    async getIssueCountsByAssignee(accountId) {
+        try {
+            const getCount = async (status) => {
+                const jql = `assignee = "${accountId}" AND status = "${status}"`;
+                const response = await this.client.get(`/rest/api/3/search/jql`, {
+                    params: { jql, fields: 'id', maxResults: 100 }
+                });
+                if (response.data.total !== undefined) {
+                    return response.data.total;
+                }
+                const issues = response.data.issues || [];
+                return issues.length;
+            };
+
+            const [todo, inProgress, done] = await Promise.all([
+                getCount('To Do'),
+                getCount('In Progress'),
+                getCount('Done')
+            ]);
+
+            return { todo, inProgress, done };
+        } catch (error) {
+            console.error('Error retrieving Jira issue counts:', error.response?.data || error.message);
+            throw error;
+        }
+    }
 }
 
 // Export a singleton instance

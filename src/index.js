@@ -12,6 +12,7 @@ async function start() {
         // Set Telegram command menu
         await bot.telegram.setMyCommands([
             { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
+            { command: 'myaccount', description: 'មើលព័ត៌មានគណនីរបស់អ្នក' },
             { command: 'todo', description: 'មើលកិច្ចការត្រូវធ្វើ' },
             { command: 'inprogress', description: 'មើលកិច្ចការកំពុងធ្វើ' },
             { command: 'done', description: 'មើលកិច្ចការដែលបានធ្វើរួច' },
