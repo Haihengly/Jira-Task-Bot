@@ -61,7 +61,7 @@ async function handleTasks(ctx, status) {
         sortedProjectNames.forEach(projectName => {
             const projectIssues = groupedIssues[projectName];
 
-            message += `\n🗂 *${escapeMarkdown(projectName)}*\n`;
+            message += `\n🗂 *${escapeMarkdown(projectName)}*\n\n`;
 
             if (isDone) {
                 // Sort alphabetically by issue key
@@ -110,7 +110,11 @@ async function handleTasks(ctx, status) {
 
                     const priorityName = issue.fields?.priority?.name || 'None';
                     const dueDate = issue.fields?.duedate;
-                    const priorityAndDueText = formatPriorityAndDue(priorityName, dueDate, { today });
+                    const priorityAndDueText = formatPriorityAndDue(priorityName, dueDate, {
+                        withPriorityLabel: true,
+                        alwaysShowDueDate: true,
+                        today
+                    });
 
                     message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
                     message += `   ${priorityAndDueText}\n\n`;
