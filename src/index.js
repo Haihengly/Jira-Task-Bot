@@ -1,9 +1,13 @@
 require('dotenv').config();
 const { createBot } = require('./bot');
+const { startWebhookServer } = require('./webhook');
 
 async function start() {
     try {
         const bot = createBot();
+
+        // Start webhook server alongside the bot
+        startWebhookServer(bot);
 
         // Set Telegram command menu
         await bot.telegram.setMyCommands([

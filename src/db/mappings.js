@@ -27,7 +27,18 @@ function getMappingByTelegramId(telegramUserId) {
     });
 }
 
+function getMappingByJiraAccountId(jiraAccountId) {
+    return new Promise((resolve, reject) => {
+        const query = `SELECT * FROM users WHERE jira_account_id = ?`;
+        db.get(query, [jiraAccountId], (err, row) => {
+            if (err) return reject(err);
+            resolve(row); // undefined if not found
+        });
+    });
+}
+
 module.exports = {
     saveMapping,
-    getMappingByTelegramId
+    getMappingByTelegramId,
+    getMappingByJiraAccountId
 };
