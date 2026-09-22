@@ -1,5 +1,5 @@
 const { Telegraf } = require('telegraf');
-const { handleRegister, handleConfirmRegister, handleCancelRegister, handleVerificationMessage } = require('./commands/register');
+const { handleRegister, handleConfirmRegister, handleCancelRegister } = require('./commands/register');
 const { handleTasks } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
 const { handleHelp, getHelpMessage } = require('./commands/help');
@@ -31,14 +31,6 @@ function createBot() {
     // Handle inline button callbacks for registration confirmation
     bot.action('confirm_register', handleConfirmRegister);
     bot.action('cancel_register', handleCancelRegister);
-
-    // Verification step catcher
-    bot.on('message', async (ctx, next) => {
-        const handled = await handleVerificationMessage(ctx);
-        if (!handled) {
-            return next();
-        }
-    });
 
     // Fallback handler for unrecognized messages (text, photos, voice notes, stickers, documents, etc.)
     // Placed after all command handlers so it only fires when nothing else matched

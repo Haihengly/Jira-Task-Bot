@@ -1,9 +1,8 @@
 const { Markup } = require('telegraf');
-const { Resend } = require('resend');
 const jiraClient = require('../jira/client');
 const { saveMapping, getMappingByTelegramId } = require('../db/mappings');
 
-// In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping, verificationCode, expiresAt }
+// In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
 const pendingRegistrations = new Map();
 
 async function handleRegister(ctx) {
@@ -69,92 +68,32 @@ async function handleConfirmRegister(ctx) {
 
     const pending = pendingRegistrations.get(telegramUserId);
 
-    if (pending.status === 'VERIFYING') {
-        return ctx.editMessageText('យើងបានផ្ញើកូដរួចហើយ។ សូមពិនិត្យមើលអ៊ីមែលរបស់អ្នក។').catch(() => {});
-    }
-
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = Date.now() + 10 * 60 * 1000; // 10 minutes
-
-    pending.status = 'VERIFYING';
-    pending.verificationCode = code;
-    pending.expiresAt = expiresAt;
+    // Bypass verification, directly register
+    pendingRegistrations.delete(telegramUserId);
 
     try {
-        const resend = new Resend(process.env.RESEND_API_KEY);
-        await resend.emails.send({
-            from: 'onboarding@resend.dev',
-            to: pending.email,
-            subject: 'Your Jira Bot Verification Code',
-            text: `Your verification code is: ${code}\nThis code expires in 10 minutes.`,
-            html: `<p>Your verification code is: <strong>${code}</strong></p><p>This code expires in 10 minutes.</p>`
-        });
+        await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email, pending.displayName);
 
-        return ctx.editMessageText('កូដផ្ទៀងផ្ទាត់ត្រូវបានផ្ញើទៅអ៊ីមែលរបស់អ្នកហើយ។ សូមផ្ញើកូដ 6 ខ្ទង់មកកាន់ bot នេះក្នុងរយៈពេល 10 នាទី។');
+        let replyMessage = `ចុះឈ្មោះជោគជ័យ! 🎉\n`;
+
+        if (pending.existingMapping && pending.existingMapping.jira_email && pending.existingMapping.jira_email.toLowerCase() !== pending.email.toLowerCase()) {
+            replyMessage += `គណនី Jira របស់អ្នកត្រូវបានផ្លាស់ប្តូរពី ${pending.existingMapping.jira_email} ទៅ ${pending.email}។\n`;
+        }
+
+        replyMessage +=
+            `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${pending.displayName || pending.email})។\n\n` +
+            `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
+            `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
+            `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
+            `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
+            `/done - មើលកិច្ចការដែលបានធ្វើរួច\n` +
+            `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
+
+        return ctx.editMessageText(replyMessage);
     } catch (error) {
-        console.error('Error sending verification email:', error);
-        pendingRegistrations.delete(telegramUserId);
-        return ctx.editMessageText('មានបញ្ហាក្នុងការផ្ញើអ៊ីមែលផ្ទៀងផ្ទាត់។ សូមព្យាយាមចុះឈ្មោះម្តងទៀត។ (Failed to send verification email. Please try registering again.)');
+        console.error('Error saving mapping during confirm_register:', error);
+        return ctx.editMessageText('An error occurred while linking your Jira account. Please try again later.').catch(() => {});
     }
-}
-
-async function handleVerificationMessage(ctx) {
-    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    if (!telegramUserId || !pendingRegistrations.has(telegramUserId)) {
-        return false;
-    }
-
-    const pending = pendingRegistrations.get(telegramUserId);
-    if (pending.status !== 'VERIFYING') {
-        return false;
-    }
-
-    const text = ctx.message?.text?.trim() || '';
-
-    if (/^\d{6}$/.test(text)) {
-        if (Date.now() > pending.expiresAt) {
-            pendingRegistrations.delete(telegramUserId);
-            await ctx.reply('កូដផ្ទៀងផ្ទាត់របស់អ្នកបានផុតកំណត់។ សូមប្រើ /register ម្តងទៀត។ (Verification code has expired. Please run /register again.)');
-            return true;
-        }
-
-        if (text === pending.verificationCode) {
-            // Correct code
-            pendingRegistrations.delete(telegramUserId);
-
-            try {
-                await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email, pending.displayName);
-
-                let replyMessage = `ចុះឈ្មោះជោគជ័យ! 🎉\n`;
-
-                if (pending.existingMapping && pending.existingMapping.jira_email && pending.existingMapping.jira_email.toLowerCase() !== pending.email.toLowerCase()) {
-                    replyMessage += `គណនី Jira របស់អ្នកត្រូវបានផ្លាស់ប្តូរពី ${pending.existingMapping.jira_email} ទៅ ${pending.email}។\n`;
-                }
-
-                replyMessage +=
-                    `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${pending.displayName || pending.email})។\n\n` +
-                    `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
-                    `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
-                    `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
-                    `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
-                    `/done - មើលកិច្ចការដែលបានធ្វើរួច\n` +
-                    `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
-
-                await ctx.reply(replyMessage);
-                return true;
-            } catch (error) {
-                console.error('Error saving mapping during verification:', error);
-                await ctx.reply('An error occurred while linking your Jira account. Please try again later.');
-                return true;
-            }
-        } else {
-            // Wrong code
-            await ctx.reply('កូដផ្ទៀងផ្ទាត់មិនត្រឹមត្រូវទេ។ សូមព្យាយាមម្តងទៀត។ (Incorrect verification code. Please try again.)');
-            return true;
-        }
-    }
-
-    return false;
 }
 
 async function handleCancelRegister(ctx) {
@@ -171,6 +110,5 @@ async function handleCancelRegister(ctx) {
 module.exports = {
     handleRegister,
     handleConfirmRegister,
-    handleCancelRegister,
-    handleVerificationMessage
+    handleCancelRegister
 };
