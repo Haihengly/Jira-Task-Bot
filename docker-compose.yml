@@ -1,6 +1,8 @@
 services:
   bot:
-    build: .
+    build:
+      context: ./bot
+      dockerfile: ../Dockerfile.bot
     container_name: jira-telegram-bot
     restart: unless-stopped
     env_file:
@@ -11,7 +13,9 @@ services:
       - ./bot-data:/app/data
 
   cron-service:
-    build: ./cron-service
+    build:
+      context: ./cron-service
+      dockerfile: ../Dockerfile.cron-service
     container_name: jira-telegram-cron-service
     restart: unless-stopped
     env_file:
