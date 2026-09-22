@@ -68,7 +68,7 @@ async function handleConfirmRegister(ctx) {
 
     const pending = pendingRegistrations.get(telegramUserId);
 
-    // Bypass verification, directly register
+    // Remove from pending and persist mapping
     pendingRegistrations.delete(telegramUserId);
 
     try {
