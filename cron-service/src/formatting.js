@@ -149,16 +149,20 @@ function formatCombinedTaskList(todoIssues, inProgressIssues, baseUrl) {
         
         section += `🗂 *${escapeMarkdown(projectName)}*\n\n`;
 
+        section += `📋 ត្រូវធ្វើ:\n`;
         if (projectData.todo && projectData.todo.length > 0) {
             sortIssuesByUrgency(projectData.todo, today);
-            section += `📋 ត្រូវធ្វើ:\n`;
             section += formatIssuesBlock(projectData.todo, baseUrl);
+        } else {
+            section += `   គ្មាន\n\n`;
         }
 
+        section += `🔄 កំពុងធ្វើ:\n`;
         if (projectData.inProgress && projectData.inProgress.length > 0) {
             sortIssuesByUrgency(projectData.inProgress, today);
-            section += `🔄 កំពុងធ្វើ:\n`;
             section += formatIssuesBlock(projectData.inProgress, baseUrl);
+        } else {
+            section += `   គ្មាន\n\n`;
         }
     });
 
