@@ -10,6 +10,17 @@ services:
     volumes:
       - ./bot-data:/app/data
 
+  cron-service:
+    build: ./cron-service
+    container_name: jira-telegram-cron-service
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./bot-data:/app/data:ro
+    depends_on:
+      - bot
+
   ngrok:
     image: ngrok/ngrok:latest
     command: http bot:3000

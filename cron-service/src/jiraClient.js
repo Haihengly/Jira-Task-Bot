@@ -1,0 +1,49 @@
+const axios = require('axios');
+
+class JiraClient {
+    constructor() {
+        this.baseUrl = process.env.JIRA_BASE_URL;
+        this.email = process.env.JIRA_EMAIL;
+        this.apiToken = process.env.JIRA_API_TOKEN;
+
+        if (!this.baseUrl || !this.email || !this.apiToken) {
+            console.warn('WARNING: Missing Jira configuration in environment variables.');
+        }
+
+        const authToken = Buffer.from(`${this.email}:${this.apiToken}`).toString('base64');
+
+        this.client = axios.create({
+            baseURL: this.baseUrl,
+            headers: {
+                'Authorization': `Basic ${authToken}`,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            }
+        });
+    }
+
+    /**
+     * Search issues for a specific accountId and status
+     * @param {string} accountId
+     * @param {string} status 'To Do', 'In Progress'
+     * @param {string} [fields='summary,status,assignee,priority,duedate,project']
+     * @returns {Promise<Array>} List of issues
+     */
+    async getIssuesByAssigneeAndStatus(accountId, status, fields = 'summary,status,assignee,priority,duedate,project') {
+        try {
+            const jql = `assignee = "${accountId}" AND status = "${status}"`;
+            const response = await this.client.get(`/rest/api/3/search/jql`, {
+                params: {
+                    jql,
+                    fields
+                }
+            });
+            return response.data.issues || [];
+        } catch (error) {
+            console.error(`Error retrieving Jira issues for status "${status}":`, error.response?.data || error.message);
+            throw error;
+        }
+    }
+}
+
+module.exports = new JiraClient();
