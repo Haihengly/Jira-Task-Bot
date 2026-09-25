@@ -2,6 +2,7 @@ const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('../utils');
+const { cancelAwaitingEmail } = require('./register');
 
 function getMyTasksKeyboard() {
     return Markup.inlineKeyboard([
@@ -14,6 +15,11 @@ function getMyTasksKeyboard() {
 }
 
 async function handleMyTasks(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    if (telegramUserId) {
+        cancelAwaitingEmail(telegramUserId);
+    }
+
     return ctx.reply(
         'សូមជ្រើសរើសប្រភេទកិច្ចការដែលអ្នកចង់មើល៖',
         getMyTasksKeyboard()
@@ -26,6 +32,8 @@ async function handleTasks(ctx, status) {
     if (!telegramUserId) {
         return ctx.reply('Unable to read your Telegram user ID.');
     }
+
+    cancelAwaitingEmail(telegramUserId);
 
     try {
         const mapping = await getMappingByTelegramId(telegramUserId);

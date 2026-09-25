@@ -1,9 +1,11 @@
 const { Telegraf, Markup } = require('telegraf');
 const {
     handleRegister,
+    handleChangeAccount,
     handleConfirmRegister,
     handleCancelRegister,
     isAwaitingEmail,
+    cancelAwaitingEmail,
     handleConversationalEmail
 } = require('./commands/register');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
@@ -48,12 +50,14 @@ function createBot() {
                 return next();
             }
 
-            // For registered-only commands and buttons (/myaccount, /mytasks, etc.), check registration
+            // For registered-only commands and buttons (/myaccount, /mytasks, /changeaccount, etc.), check registration
             if (
                 text.startsWith('/myaccount') ||
                 text.startsWith('/mytasks') ||
+                text.startsWith('/changeaccount') ||
                 text === KEYBOARD_BUTTONS.MY_ACCOUNT ||
-                text === KEYBOARD_BUTTONS.MY_TASKS
+                text === KEYBOARD_BUTTONS.MY_TASKS ||
+                text === KEYBOARD_BUTTONS.CHANGE_ACCOUNT
             ) {
                 if (telegramUserId) {
                     const userMapping = await getMappingByTelegramId(telegramUserId);
@@ -87,6 +91,9 @@ function createBot() {
     bot.start(async (ctx) => {
         const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
         const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
+        if (telegramUserId) {
+            cancelAwaitingEmail(telegramUserId);
+        }
         let isRegistered = false;
         if (telegramUserId && chatId) {
             try {
@@ -115,6 +122,7 @@ function createBot() {
 
     // Register primary commands
     bot.command('register', handleRegister);
+    bot.command('changeaccount', handleChangeAccount);
     bot.command('deleteaccount', handleDeleteAccount);
     bot.command('myaccount', handleMyAccount);
     bot.command('mytasks', handleMyTasks);
@@ -123,6 +131,7 @@ function createBot() {
     bot.hears(KEYBOARD_BUTTONS.REGISTER, handleRegister);
     bot.hears(KEYBOARD_BUTTONS.MY_TASKS, handleMyTasks);
     bot.hears(KEYBOARD_BUTTONS.MY_ACCOUNT, handleMyAccount);
+    bot.hears(KEYBOARD_BUTTONS.CHANGE_ACCOUNT, handleChangeAccount);
     bot.hears(KEYBOARD_BUTTONS.HELP, handleHelp);
     bot.hears(KEYBOARD_BUTTONS.DELETE_ACCOUNT, handleDeleteAccount);
 

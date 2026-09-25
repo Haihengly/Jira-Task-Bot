@@ -1,6 +1,7 @@
 const { Markup } = require('telegraf');
 const { getMappingByTelegramId, deleteMapping } = require('../db/mappings');
 const { UNREGISTERED_COMMANDS, getUnregisteredKeyboard } = require('../utils/commands');
+const { cancelAwaitingEmail } = require('./register');
 
 // In-memory store for pending unregistration confirmations: telegramUserId -> { chatId, email, displayName }
 const pendingDeletions = new Map();
@@ -12,6 +13,8 @@ async function handleDeleteAccount(ctx) {
     if (!telegramUserId || !chatId) {
         return ctx.reply('Unable to read your Telegram /chat information.');
     }
+
+    cancelAwaitingEmail(telegramUserId);
 
     try {
         const userMapping = await getMappingByTelegramId(telegramUserId);

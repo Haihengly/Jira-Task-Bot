@@ -62,19 +62,28 @@ async function processEmailSearch(ctx, email, telegramUserId, chatId) {
 }
 
 async function handleRegister(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
+
+    if (!telegramUserId || !chatId) {
+        return ctx.reply('Unable to read your Telegram /chat information.');
+    }
+
+    try {
+        const existingMapping = await getMappingByTelegramId(telegramUserId);
+        if (existingMapping) {
+            return ctx.reply('អ្នកបានចុះឈ្មោះរួចហើយ។ សូមប្រើ /changeaccount ដើម្បីប្តូរគណនី Jira របស់អ្នក។');
+        }
+    } catch (err) {
+        console.error('Error checking existing mapping in /register:', err);
+    }
+
     const text = ctx.message?.text || '';
     let email = null;
 
     if (text.startsWith('/register')) {
         const args = text.split(/\s+/).slice(1);
         email = args[0]?.trim();
-    }
-
-    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
-
-    if (!telegramUserId || !chatId) {
-        return ctx.reply('Unable to read your Telegram /chat information.');
     }
 
     // Reset awaiting state
@@ -93,8 +102,58 @@ async function handleRegister(ctx) {
     return processEmailSearch(ctx, email, telegramUserId, chatId);
 }
 
+async function handleChangeAccount(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
+
+    if (!telegramUserId || !chatId) {
+        return ctx.reply('Unable to read your Telegram /chat information.');
+    }
+
+    let existingMapping = null;
+    try {
+        existingMapping = await getMappingByTelegramId(telegramUserId);
+    } catch (err) {
+        console.error('Error checking existing mapping in /changeaccount:', err);
+    }
+
+    if (!existingMapping) {
+        return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះទេ។ សូមប្រើ /register ជាមុនសិន។');
+    }
+
+    const text = ctx.message?.text || '';
+    let email = null;
+
+    if (text.startsWith('/changeaccount')) {
+        const args = text.split(/\s+/).slice(1);
+        email = args[0]?.trim();
+    }
+
+    // Reset awaiting state
+    awaitingEmails.delete(telegramUserId);
+
+    if (!email) {
+        awaitingEmails.set(telegramUserId, true);
+        const currentEmail = existingMapping.jira_email || 'គណនីមុន';
+        return ctx.reply(`អ្នកបានចុះឈ្មោះរួចជាមួយ ${currentEmail}។\nសូមផ្ញើអ៊ីមែល Jira ថ្មីដែលអ្នកចង់ប្តូរទៅ:`);
+    }
+
+    if (!isValidEmail(email)) {
+        awaitingEmails.set(telegramUserId, true);
+        return ctx.reply('ការបញ្ចូលមិនមែនជាទម្រង់អ៊ីមែលត្រឹមត្រូវទេ សូមព្យាយាមម្តងទៀត (ឧទាហរណ៍: name@example.com):');
+    }
+
+    return processEmailSearch(ctx, email, telegramUserId, chatId);
+}
+
 function isAwaitingEmail(telegramUserId) {
     return awaitingEmails.has(telegramUserId);
+}
+
+function cancelAwaitingEmail(telegramUserId) {
+    if (telegramUserId) {
+        awaitingEmails.delete(telegramUserId);
+    }
 }
 
 async function handleConversationalEmail(ctx) {
@@ -149,6 +208,7 @@ async function handleConfirmRegister(ctx) {
             `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
             `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
             `/mytasks - មើលកិច្ចការរបស់អ្នក (មានប៊ូតុងជ្រើសរើស)\n` +
+            `/changeaccount - ប្តូរគណនី Jira\n` +
             `/deleteaccount - ផ្ដាច់គណនី Jira\n` +
             `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
 
@@ -174,8 +234,10 @@ async function handleCancelRegister(ctx) {
 
 module.exports = {
     handleRegister,
+    handleChangeAccount,
     handleConfirmRegister,
     handleCancelRegister,
     isAwaitingEmail,
+    cancelAwaitingEmail,
     handleConversationalEmail
 };
