@@ -167,7 +167,7 @@ async function handleConversationalEmail(ctx) {
 
     // Simple email format check
     if (!isValidEmail(text)) {
-        return ctx.reply('ការបញ្ចូលមិនមែនជាទម្រង់អ៊ីមែលត្រឹមត្រូវទេ សូមព្យាយាមម្តងទៀត (ឧទាហਰណ៍: name@example.com):');
+        return ctx.reply('ការបញ្ចូលមិនមែនជាទម្រង់អ៊ីមែលត្រឹមត្រូវទេ សូមព្យាយាមម្តងទៀត (ឧទាហរណ៍: name@example.com):');
     }
 
     return processEmailSearch(ctx, text, telegramUserId, chatId);
