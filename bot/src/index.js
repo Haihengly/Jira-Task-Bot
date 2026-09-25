@@ -12,31 +12,25 @@ async function start() {
         startWebhookServer(bot);
 
         // 1. Set global Telegram command menu for EVERYONE (Unregistered default limit)
-        console.log('[DEBUG setMyCommands] Setting default global commands:', JSON.stringify(UNREGISTERED_COMMANDS));
-        const defaultRes = await bot.telegram.setMyCommands(UNREGISTERED_COMMANDS, { scope: { type: 'default' } });
-        console.log('[DEBUG setMyCommands] Global default result:', defaultRes);
+        await bot.telegram.setMyCommands(UNREGISTERED_COMMANDS, { scope: { type: 'default' } });
 
         // 2. Fetch all registered users and upgrade their specific menus
         try {
             const users = await getAllUsers();
             if (users && users.length > 0) {
-                console.log(`[DEBUG setMyCommands] Setting up command menus for ${users.length} registered users...`);
+                console.log(`Setting up command menus for ${users.length} registered users...`);
 
                 for (const user of users) {
                     try {
-                        console.log(`[DEBUG setMyCommands] Sending for chat_id=${user.chat_id}, telegram_user_id=${user.telegram_user_id}:`, JSON.stringify(REGISTERED_COMMANDS));
-                        const userRes = await bot.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: user.chat_id } });
-                        console.log(`[DEBUG setMyCommands] Result for chat_id=${user.chat_id}:`, userRes);
+                        await bot.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: user.chat_id } });
                     } catch (err) {
-                        console.error(`[DEBUG setMyCommands] Failed to set commands for chat_id ${user.chat_id}:`, err);
+                        console.error(`Failed to set commands for chat_id ${user.chat_id}:`, err.message);
                     }
                 }
-                console.log(`[DEBUG setMyCommands] Commands updated for registered users.`);
-            } else {
-                console.log('[DEBUG setMyCommands] No registered users found in database.');
+                console.log(`Commands updated for registered users.`);
             }
         } catch (dbErr) {
-            console.error('[DEBUG setMyCommands] Failed to query user menus:', dbErr);
+            console.error('Failed to query user menus:', dbErr.message);
         }
 
         // Graceful stop listeners

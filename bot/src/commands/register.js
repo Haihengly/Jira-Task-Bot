@@ -98,6 +98,7 @@ async function handleConfirmRegister(ctx) {
             `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
             `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
             `/mytasks - មើលកិច្ចការរបស់អ្នក (មានប៊ូតុងជ្រើសរើស)\n` +
+            `/deleteaccount - ផ្ដាច់គណនី Jira\n` +
             `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
 
         return ctx.editMessageText(replyMessage);

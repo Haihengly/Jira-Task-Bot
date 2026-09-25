@@ -48,9 +48,20 @@ function getAllUsers() {
     });
 }
 
+function deleteMapping(telegramUserId) {
+    return new Promise((resolve, reject) => {
+        const query = `DELETE FROM users WHERE telegram_user_id = ?`;
+        db.run(query, [telegramUserId], function(err) {
+            if (err) return reject(err);
+            resolve(this.changes);
+        });
+    });
+}
+
 module.exports = {
     saveMapping,
     getMappingByTelegramId,
     getMappingByJiraAccountId,
-    getAllUsers
+    getAllUsers,
+    deleteMapping
 };

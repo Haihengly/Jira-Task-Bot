@@ -1,5 +1,6 @@
 const { Telegraf } = require('telegraf');
 const { handleRegister, handleConfirmRegister, handleCancelRegister } = require('./commands/register');
+const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const { handleTasks, handleMyTasks } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
 const { handleHelp, getStartMessage } = require('./commands/help');
@@ -21,7 +22,7 @@ function createBot() {
         if (ctx.message && ctx.message.text) {
             const text = ctx.message.text.trim();
             // Check if it's one of the exempt commands
-            if (text.startsWith('/register') || text.startsWith('/start') || text.startsWith('/help')) {
+            if (text.startsWith('/register') || text.startsWith('/start') || text.startsWith('/help') || text.startsWith('/deleteaccount')) {
                 return next();
             }
 
@@ -41,6 +42,7 @@ function createBot() {
         if (ctx.callbackQuery) {
              const callbackData = ctx.callbackQuery.data;
              if (callbackData === 'confirm_register' || callbackData === 'cancel_register' ||
+                 callbackData === 'confirm_delete_account' || callbackData === 'cancel_delete_account' ||
                  callbackData === 'tasks_todo' || callbackData === 'tasks_inprogress' || callbackData === 'tasks_done') {
                  return next();
              }
@@ -75,12 +77,17 @@ function createBot() {
 
     // Register primary commands
     bot.command('register', handleRegister);
+    bot.command('deleteaccount', handleDeleteAccount);
     bot.command('myaccount', handleMyAccount);
     bot.command('mytasks', handleMyTasks);
 
     // Handle inline button callbacks for registration confirmation
     bot.action('confirm_register', handleConfirmRegister);
     bot.action('cancel_register', handleCancelRegister);
+
+    // Handle inline button callbacks for unregistration confirmation
+    bot.action('confirm_delete_account', handleConfirmDeleteAccount);
+    bot.action('cancel_delete_account', handleCancelDeleteAccount);
 
     // Handle inline button callbacks for /mytasks
     bot.action('tasks_todo', async (ctx) => {

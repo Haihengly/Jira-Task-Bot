@@ -4,10 +4,11 @@ const UNREGISTERED_COMMANDS = [
 ];
 
 const REGISTERED_COMMANDS = [
+    { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
     { command: 'myaccount', description: 'មើលព័ត៌មានគណនីរបស់អ្នក' },
     { command: 'mytasks', description: 'មើលកិច្ចការរបស់អ្នក' },
-    { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
-    { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
+    { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' },
+    { command: 'deleteaccount', description: 'ផ្ដាច់គណនី Jira' }
 ];
 
 // Helper to generate the text for the /help command
