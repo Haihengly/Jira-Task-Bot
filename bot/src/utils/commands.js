@@ -1,3 +1,5 @@
+const { Markup } = require('telegraf');
+
 const UNREGISTERED_COMMANDS = [
     { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
     { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
@@ -11,6 +13,21 @@ const REGISTERED_COMMANDS = [
     { command: 'deleteaccount', description: 'ផ្ដាច់គណនី Jira' }
 ];
 
+const KEYBOARD_BUTTONS = {
+    MY_TASKS: '📋 កិច្ចការរបស់ខ្ញុំ',
+    MY_ACCOUNT: '👤 គណនីរបស់ខ្ញុំ',
+    HELP: '❓ ជំនួយ',
+    DELETE_ACCOUNT: '🔴 ផ្ដាច់គណនី'
+};
+
+function getRegisteredKeyboard() {
+    return Markup.keyboard([
+        [KEYBOARD_BUTTONS.MY_TASKS],
+        [KEYBOARD_BUTTONS.MY_ACCOUNT, KEYBOARD_BUTTONS.HELP],
+        [KEYBOARD_BUTTONS.DELETE_ACCOUNT]
+    ]).resize();
+}
+
 // Helper to generate the text for the /help command
 function generateHelpCommandList(commands) {
     return commands.map(c => `/${c.command} - ${c.description}`).join('\n');
@@ -19,5 +36,7 @@ function generateHelpCommandList(commands) {
 module.exports = {
     UNREGISTERED_COMMANDS,
     REGISTERED_COMMANDS,
+    KEYBOARD_BUTTONS,
+    getRegisteredKeyboard,
     generateHelpCommandList
 };

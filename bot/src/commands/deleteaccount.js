@@ -64,11 +64,13 @@ async function handleConfirmDeleteAccount(ctx) {
             console.error('Failed to reset user command menu:', menuErr.message);
         }
 
-        return ctx.editMessageText(
+        const deleteSuccessMessage =
             `ផ្ដាច់គណនី Jira ជោគជ័យ! ✅\n\n` +
             `អ្នកបានផ្ដាច់គណនី (${pending.displayName || pending.email}) រួចរាល់ហើយ។\n` +
-            `អ្នកអាចប្រើពាក្យបញ្ជា /register <jira_email> ម្តងទៀតគ្រប់ពេលវេលាដើម្បីភ្ជាប់គណនី Jira ថ្មី ឬគណនីដដែល។`
-        );
+            `អ្នកអាចប្រើពាក្យបញ្ជា /register <jira_email> ម្តងទៀតគ្រប់ពេលវេលាដើម្បីភ្ជាប់គណនី Jira ថ្មី ឬគណនីដដែល។`;
+
+        await ctx.editMessageText('✅ បានផ្ដាច់គណនីជោគជ័យ!').catch(() => {});
+        return ctx.reply(deleteSuccessMessage, Markup.removeKeyboard());
     } catch (error) {
         console.error('Error during confirm_delete_account:', error);
         return ctx.editMessageText('An error occurred while unlinking your Jira account. Please try again later.').catch(() => {});

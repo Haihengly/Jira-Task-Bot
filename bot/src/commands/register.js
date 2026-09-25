@@ -1,7 +1,7 @@
 const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
 const { saveMapping, getMappingByTelegramId, getMappingByJiraAccountId } = require('../db/mappings');
-const { REGISTERED_COMMANDS } = require('../utils/commands');
+const { REGISTERED_COMMANDS, getRegisteredKeyboard } = require('../utils/commands');
 
 // In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
 const pendingRegistrations = new Map();
@@ -101,7 +101,8 @@ async function handleConfirmRegister(ctx) {
             `/deleteaccount - ផ្ដាច់គណនី Jira\n` +
             `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
 
-        return ctx.editMessageText(replyMessage);
+        await ctx.editMessageText('✅ បានភ្ជាប់គណនីជោគជ័យ!').catch(() => {});
+        return ctx.reply(replyMessage, getRegisteredKeyboard());
     } catch (error) {
         console.error('Error saving mapping during confirm_register:', error);
         return ctx.editMessageText('An error occurred while linking your Jira account. Please try again later.').catch(() => {});
