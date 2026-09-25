@@ -1,6 +1,6 @@
 const { Telegraf } = require('telegraf');
 const { handleRegister, handleConfirmRegister, handleCancelRegister } = require('./commands/register');
-const { handleTasks } = require('./commands/tasks');
+const { handleTasks, handleMyTasks } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
 const { handleHelp, getStartMessage } = require('./commands/help');
 const { getMappingByTelegramId } = require('./db/mappings');
@@ -40,7 +40,8 @@ function createBot() {
         // For inline registration buttons, they need to bypass this if the user isn't fully registered yet.
         if (ctx.callbackQuery) {
              const callbackData = ctx.callbackQuery.data;
-             if (callbackData === 'confirm_register' || callbackData === 'cancel_register') {
+             if (callbackData === 'confirm_register' || callbackData === 'cancel_register' ||
+                 callbackData === 'tasks_todo' || callbackData === 'tasks_inprogress' || callbackData === 'tasks_done') {
                  return next();
              }
         }
@@ -75,13 +76,25 @@ function createBot() {
     // Register primary commands
     bot.command('register', handleRegister);
     bot.command('myaccount', handleMyAccount);
-    bot.command('todo', (ctx) => handleTasks(ctx, 'To Do'));
-    bot.command('inprogress', (ctx) => handleTasks(ctx, 'In Progress'));
-    bot.command('done', (ctx) => handleTasks(ctx, 'Done'));
+    bot.command('mytasks', handleMyTasks);
 
     // Handle inline button callbacks for registration confirmation
     bot.action('confirm_register', handleConfirmRegister);
     bot.action('cancel_register', handleCancelRegister);
+
+    // Handle inline button callbacks for /mytasks
+    bot.action('tasks_todo', async (ctx) => {
+        await ctx.answerCbQuery().catch(() => {});
+        return handleTasks(ctx, 'To Do');
+    });
+    bot.action('tasks_inprogress', async (ctx) => {
+        await ctx.answerCbQuery().catch(() => {});
+        return handleTasks(ctx, 'In Progress');
+    });
+    bot.action('tasks_done', async (ctx) => {
+        await ctx.answerCbQuery().catch(() => {});
+        return handleTasks(ctx, 'Done');
+    });
 
     // Fallback handler for unrecognized messages (text, photos, voice notes, stickers, documents, etc.)
     // Placed after all command handlers so it only fires when nothing else matched

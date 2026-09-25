@@ -1,4 +1,5 @@
 const { getMappingByTelegramId } = require('../db/mappings');
+const { REGISTERED_COMMANDS, generateHelpCommandList } = require('../utils/commands');
 
 function getStartMessage() {
     return (
@@ -22,12 +23,7 @@ function getUnregisteredHelpMessage() {
 function getRegisteredHelpMessage() {
     return (
         `របៀបប្រើប្រាស់ និងពាក្យបញ្ជាដែលអាចប្រើបាន: 📋\n\n` +
-        `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
-        `/todo - មើលកិច្ចការត្រូវធ្វើ (To Do)\n` +
-        `/inprogress - មើលកិច្ចការកំពុងធ្វើ (In Progress)\n` +
-        `/done - មើលកិច្ចការដែលបានធ្វើរួច (Done)\n` +
-        `/register jira@example.com - ផ្លាស់ប្តូរគណនី Jira របស់អ្នក\n` +
-        `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`
+        generateHelpCommandList(REGISTERED_COMMANDS)
     );
 }
 

@@ -2,6 +2,7 @@ require('dotenv').config();
 const { createBot } = require('./bot');
 const { startWebhookServer } = require('./webhook');
 const { getAllUsers } = require('./db/mappings');
+const { UNREGISTERED_COMMANDS, REGISTERED_COMMANDS } = require('./utils/commands');
 
 async function start() {
     try {
@@ -11,46 +12,40 @@ async function start() {
         startWebhookServer(bot);
 
         // 1. Set global Telegram command menu for EVERYONE (Unregistered default limit)
-        await bot.telegram.setMyCommands([
-            { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
-            { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
-        ], { scope: { type: 'default' } });
+        console.log('[DEBUG setMyCommands] Setting default global commands:', JSON.stringify(UNREGISTERED_COMMANDS));
+        const defaultRes = await bot.telegram.setMyCommands(UNREGISTERED_COMMANDS, { scope: { type: 'default' } });
+        console.log('[DEBUG setMyCommands] Global default result:', defaultRes);
+
+        // 2. Fetch all registered users and upgrade their specific menus
+        try {
+            const users = await getAllUsers();
+            if (users && users.length > 0) {
+                console.log(`[DEBUG setMyCommands] Setting up command menus for ${users.length} registered users...`);
+
+                for (const user of users) {
+                    try {
+                        console.log(`[DEBUG setMyCommands] Sending for chat_id=${user.chat_id}, telegram_user_id=${user.telegram_user_id}:`, JSON.stringify(REGISTERED_COMMANDS));
+                        const userRes = await bot.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: user.chat_id } });
+                        console.log(`[DEBUG setMyCommands] Result for chat_id=${user.chat_id}:`, userRes);
+                    } catch (err) {
+                        console.error(`[DEBUG setMyCommands] Failed to set commands for chat_id ${user.chat_id}:`, err);
+                    }
+                }
+                console.log(`[DEBUG setMyCommands] Commands updated for registered users.`);
+            } else {
+                console.log('[DEBUG setMyCommands] No registered users found in database.');
+            }
+        } catch (dbErr) {
+            console.error('[DEBUG setMyCommands] Failed to query user menus:', dbErr);
+        }
 
         // Graceful stop listeners
         process.once('SIGINT', () => bot.stop('SIGINT'));
         process.once('SIGTERM', () => bot.stop('SIGTERM'));
 
         console.log('Starting Telegram bot in polling mode...');
-        await bot.launch();
+        bot.launch();
         console.log('Bot is running and listening for messages!');
-
-        // 2. Fetch all registered users and upgrade their specific menus in background
-        try {
-            const users = await getAllUsers();
-            if (users && users.length > 0) {
-                console.log(`Setting up command menus for ${users.length} registered users...`);
-
-                const registeredCommands = [
-                    { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
-                    { command: 'myaccount', description: 'មើលព័ត៌មានគណនីរបស់អ្នក' },
-                    { command: 'todo', description: 'មើលកិច្ចការត្រូវធ្វើ' },
-                    { command: 'inprogress', description: 'មើលកិច្ចការកំពុងធ្វើ' },
-                    { command: 'done', description: 'មើលកិច្ចការដែលបានធ្វើរួច' },
-                    { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
-                ];
-
-                for (const user of users) {
-                     try {
-                        await bot.telegram.setMyCommands(registeredCommands, { scope: { type: 'chat', chat_id: user.chat_id } });
-                     } catch (err) {
-                        console.error(`Failed to set commands for chat_id ${user.chat_id}:`, err.message);
-                     }
-                }
-                console.log(`Commands updated for registered users.`);
-            }
-        } catch (dbErr) {
-            console.error('Failed to update user menus:', dbErr.message);
-        }
 
     } catch (err) {
         console.error('Failed to start the bot:', err);

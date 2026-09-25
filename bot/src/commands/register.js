@@ -1,6 +1,7 @@
 const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
 const { saveMapping, getMappingByTelegramId, getMappingByJiraAccountId } = require('../db/mappings');
+const { REGISTERED_COMMANDS } = require('../utils/commands');
 
 // In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
 const pendingRegistrations = new Map();
@@ -81,15 +82,7 @@ async function handleConfirmRegister(ctx) {
 
         // Update scoped Telegram menu for this user to unlock registered commands
         try {
-            const registeredCommands = [
-                { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
-                { command: 'myaccount', description: 'មើលព័ត៌មានគណនីរបស់អ្នក' },
-                { command: 'todo', description: 'មើលកិច្ចការត្រូវធ្វើ' },
-                { command: 'inprogress', description: 'មើលកិច្ចការកំពុងធ្វើ' },
-                { command: 'done', description: 'មើលកិច្ចការដែលបានធ្វើរួច' },
-                { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
-            ];
-            await ctx.telegram.setMyCommands(registeredCommands, { scope: { type: 'chat', chat_id: pending.chatId } });
+            await ctx.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: pending.chatId } });
         } catch (menuErr) {
             console.error('Failed to update user command menu:', menuErr.message);
         }
@@ -104,9 +97,7 @@ async function handleConfirmRegister(ctx) {
             `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${pending.displayName || pending.email})។\n\n` +
             `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
             `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
-            `/todo - មើលកិច្ចការត្រូវធ្វើ\n` +
-            `/inprogress - មើលកិច្ចការកំពុងធ្វើ\n` +
-            `/done - មើលកិច្ចការដែលបានធ្វើរួច\n` +
+            `/mytasks - មើលកិច្ចការរបស់អ្នក (មានប៊ូតុងជ្រើសរើស)\n` +
             `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
 
         return ctx.editMessageText(replyMessage);

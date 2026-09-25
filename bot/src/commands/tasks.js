@@ -1,6 +1,24 @@
+const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('../utils');
+
+function getMyTasksKeyboard() {
+    return Markup.inlineKeyboard([
+        [
+            Markup.button.callback('📋 ត្រូវធ្វើ', 'tasks_todo'),
+            Markup.button.callback('🔄 កំពុងធ្វើ', 'tasks_inprogress'),
+            Markup.button.callback('✅ បានធ្វើរួច', 'tasks_done')
+        ]
+    ]);
+}
+
+async function handleMyTasks(ctx) {
+    return ctx.reply(
+        'សូមជ្រើសរើសប្រភេទកិច្ចការដែលអ្នកចង់មើល៖',
+        getMyTasksKeyboard()
+    );
+}
 
 async function handleTasks(ctx, status) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
@@ -130,5 +148,6 @@ async function handleTasks(ctx, status) {
 }
 
 module.exports = {
-    handleTasks
+    handleTasks,
+    handleMyTasks
 };
