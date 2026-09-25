@@ -14,6 +14,7 @@ const REGISTERED_COMMANDS = [
 ];
 
 const KEYBOARD_BUTTONS = {
+    REGISTER: '✍️ ចុះឈ្មោះ',
     MY_TASKS: '📋 កិច្ចការរបស់ខ្ញុំ',
     MY_ACCOUNT: '👤 គណនីរបស់ខ្ញុំ',
     HELP: '❓ ជំនួយ',
@@ -28,6 +29,12 @@ function getRegisteredKeyboard() {
     ]).resize();
 }
 
+function getUnregisteredKeyboard() {
+    return Markup.keyboard([
+        [KEYBOARD_BUTTONS.REGISTER, KEYBOARD_BUTTONS.HELP]
+    ]).resize();
+}
+
 // Helper to generate the text for the /help command
 function generateHelpCommandList(commands) {
     return commands.map(c => `/${c.command} - ${c.description}`).join('\n');
@@ -38,5 +45,6 @@ module.exports = {
     REGISTERED_COMMANDS,
     KEYBOARD_BUTTONS,
     getRegisteredKeyboard,
+    getUnregisteredKeyboard,
     generateHelpCommandList
 };

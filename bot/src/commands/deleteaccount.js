@@ -1,6 +1,6 @@
 const { Markup } = require('telegraf');
 const { getMappingByTelegramId, deleteMapping } = require('../db/mappings');
-const { UNREGISTERED_COMMANDS } = require('../utils/commands');
+const { UNREGISTERED_COMMANDS, getUnregisteredKeyboard } = require('../utils/commands');
 
 // In-memory store for pending unregistration confirmations: telegramUserId -> { chatId, email, displayName }
 const pendingDeletions = new Map();
@@ -16,7 +16,7 @@ async function handleDeleteAccount(ctx) {
     try {
         const userMapping = await getMappingByTelegramId(telegramUserId);
         if (!userMapping) {
-            return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះនៅឡើយទេ។ មិនអាចធ្វើការផ្ដាច់គណនីបានទេ:\nសូមប្រើ /register <jira_email> ដើម្បីចុះឈ្មោះ។');
+            return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះនៅឡើយទេ។ មិនអាចធ្វើការផ្ដាច់គណនីបានទេ:\nសូមប្រើ /register ដើម្បីចុះឈ្មោះ។');
         }
 
         const displayName = userMapping.display_name || userMapping.jira_email;
@@ -67,10 +67,10 @@ async function handleConfirmDeleteAccount(ctx) {
         const deleteSuccessMessage =
             `ផ្ដាច់គណនី Jira ជោគជ័យ! ✅\n\n` +
             `អ្នកបានផ្ដាច់គណនី (${pending.displayName || pending.email}) រួចរាល់ហើយ។\n` +
-            `អ្នកអាចប្រើពាក្យបញ្ជា /register <jira_email> ម្តងទៀតគ្រប់ពេលវេលាដើម្បីភ្ជាប់គណនី Jira ថ្មី ឬគណនីដដែល។`;
+            `អ្នកអាចប្រើពាក្យបញ្ជា /register ម្តងទៀតគ្រប់ពេលវេលាដើម្បីភ្ជាប់គណនី Jira ថ្មី ឬគណនីដដែល។`;
 
         await ctx.editMessageText('✅ បានផ្ដាច់គណនីជោគជ័យ!').catch(() => {});
-        return ctx.reply(deleteSuccessMessage, Markup.removeKeyboard());
+        return ctx.reply(deleteSuccessMessage, getUnregisteredKeyboard());
     } catch (error) {
         console.error('Error during confirm_delete_account:', error);
         return ctx.editMessageText('An error occurred while unlinking your Jira account. Please try again later.').catch(() => {});

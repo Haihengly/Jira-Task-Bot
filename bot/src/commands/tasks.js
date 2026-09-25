@@ -33,7 +33,7 @@ async function handleTasks(ctx, status) {
         if (!mapping || !mapping.jira_account_id) {
             return ctx.reply(
                 'អ្នកមិនទាន់បានចុះឈ្មោះគណនី Jira របស់អ្នកនៅឡើយទេ!\n' +
-                'សូមប្រើ /register jira@example.com ដើម្បីភ្ជាប់គណនីរបស់អ្នកជាមុនសិន។'
+                'សូមប្រើ /register ដើម្បីភ្ជាប់គណនីរបស់អ្នកជាមុនសិន។'
             );
         }
 

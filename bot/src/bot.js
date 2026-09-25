@@ -1,5 +1,11 @@
 const { Telegraf, Markup } = require('telegraf');
-const { handleRegister, handleConfirmRegister, handleCancelRegister } = require('./commands/register');
+const {
+    handleRegister,
+    handleConfirmRegister,
+    handleCancelRegister,
+    isAwaitingEmail,
+    handleConversationalEmail
+} = require('./commands/register');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const { handleTasks, handleMyTasks } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
@@ -8,6 +14,7 @@ const { getMappingByTelegramId } = require('./db/mappings');
 const {
     KEYBOARD_BUTTONS,
     getRegisteredKeyboard,
+    getUnregisteredKeyboard,
     REGISTERED_COMMANDS,
     UNREGISTERED_COMMANDS
 } = require('./utils/commands');
@@ -25,24 +32,34 @@ function createBot() {
         // Check if the message is a text command or button click
         if (ctx.message && ctx.message.text) {
             const text = ctx.message.text.trim();
-            // Check if it's one of the exempt commands / buttons
+            const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+
+            // Check if it's one of the exempt commands / buttons or awaiting email input (for plain text)
             if (
                 text.startsWith('/register') ||
                 text.startsWith('/start') ||
                 text.startsWith('/help') ||
                 text.startsWith('/deleteaccount') ||
+                text === KEYBOARD_BUTTONS.REGISTER ||
                 text === KEYBOARD_BUTTONS.HELP ||
-                text === KEYBOARD_BUTTONS.DELETE_ACCOUNT
+                text === KEYBOARD_BUTTONS.DELETE_ACCOUNT ||
+                (telegramUserId && isAwaitingEmail(telegramUserId) && !text.startsWith('/'))
             ) {
                 return next();
             }
 
-            // For all other messages/commands (including /myaccount, /mytasks, and their keyboard buttons), check registration
-            const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-            if (telegramUserId) {
-                const userMapping = await getMappingByTelegramId(telegramUserId);
-                if (!userMapping) {
-                    return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះទេ។ សូមប្រើ /register <jira_email> ជាមុនសិន។');
+            // For registered-only commands and buttons (/myaccount, /mytasks, etc.), check registration
+            if (
+                text.startsWith('/myaccount') ||
+                text.startsWith('/mytasks') ||
+                text === KEYBOARD_BUTTONS.MY_ACCOUNT ||
+                text === KEYBOARD_BUTTONS.MY_TASKS
+            ) {
+                if (telegramUserId) {
+                    const userMapping = await getMappingByTelegramId(telegramUserId);
+                    if (!userMapping) {
+                        return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះទេ។ សូមប្រើ /register ជាមុនសិន។');
+                    }
                 }
             }
         }
@@ -88,7 +105,7 @@ function createBot() {
         if (isRegistered) {
             return ctx.reply(getStartMessage(), getRegisteredKeyboard());
         } else {
-            return ctx.reply(getStartMessage(), Markup.removeKeyboard());
+            return ctx.reply(getStartMessage(), getUnregisteredKeyboard());
         }
     });
 
@@ -103,6 +120,7 @@ function createBot() {
     bot.command('mytasks', handleMyTasks);
 
     // Register reply keyboard button listeners
+    bot.hears(KEYBOARD_BUTTONS.REGISTER, handleRegister);
     bot.hears(KEYBOARD_BUTTONS.MY_TASKS, handleMyTasks);
     bot.hears(KEYBOARD_BUTTONS.MY_ACCOUNT, handleMyAccount);
     bot.hears(KEYBOARD_BUTTONS.HELP, handleHelp);
@@ -132,7 +150,15 @@ function createBot() {
 
     // Fallback handler for unrecognized messages (text, photos, voice notes, stickers, documents, etc.)
     // Placed after all command handlers so it only fires when nothing else matched
-    bot.on('message', (ctx) => {
+    bot.on('message', async (ctx) => {
+        const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+        const text = ctx.message?.text?.trim();
+
+        // If user is awaiting conversational email input and message is plain text (not a command starting with /)
+        if (telegramUserId && isAwaitingEmail(telegramUserId) && text && !text.startsWith('/')) {
+            return handleConversationalEmail(ctx);
+        }
+
         return ctx.reply(
             `ការបញ្ជូលមិនត្រូវទម្រង់ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
         );

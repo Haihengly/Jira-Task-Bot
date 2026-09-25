@@ -6,8 +6,7 @@ function getStartMessage() {
         `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
         `សូមធ្វើការចុះឈ្មោះជាមុនសិន ដើម្បីចូលប្រើប្រាស់:\n\n` +
         `របៀបចុះឈ្មោះ:\n` +
-        `ប្រើប្រាស់ពាក្យបញ្ជា /register\n` +
-        `ឧទាហរណ៍ ៖ /register jira@example.com - ភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira\n\n` +
+        `ប្រើប្រាស់ពាក្យបញ្ជា /register - ភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira\n\n` +
         `សូមអរគុណ`
     );
 }
@@ -16,7 +15,7 @@ function getUnregisteredHelpMessage() {
     return (
         `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
         `របៀបចុះឈ្មោះ:\n` +
-        `/register jira@example.com - ភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira`
+        `/register - ភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira`
     );
 }
 

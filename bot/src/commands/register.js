@@ -6,22 +6,10 @@ const { REGISTERED_COMMANDS, getRegisteredKeyboard } = require('../utils/command
 // In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
 const pendingRegistrations = new Map();
 
-async function handleRegister(ctx) {
-    const text = ctx.message?.text || '';
-    const args = text.split(/\s+/).slice(1);
-    const email = args[0]?.trim();
+// In-memory store for conversational email prompt
+const awaitingEmails = new Map();
 
-    if (!email) {
-        return ctx.reply('សូមផ្តល់អ៊ីមែល Jira របស់អ្នក។\nឧទាហរណ៍: /register jira@example.com');
-    }
-
-    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
-
-    if (!telegramUserId || !chatId) {
-        return ctx.reply('Unable to read your Telegram /chat information.');
-    }
-
+async function processEmailSearch(ctx, email, telegramUserId, chatId) {
     try {
         const jiraUser = await jiraClient.findUserByEmail(email);
 
@@ -50,6 +38,9 @@ async function handleRegister(ctx) {
             existingMapping
         });
 
+        // Successfully found user and ready for confirmation, clear the conversational state
+        awaitingEmails.delete(telegramUserId);
+
         return ctx.reply(
             `រកឃើញគណនី Jira: ${displayName} (${email})\n` +
             `តើនេះជាអ្នកមែនទេ? សូមជ្រើសរើសខាងក្រោម៖`,
@@ -64,6 +55,54 @@ async function handleRegister(ctx) {
     }
 }
 
+async function handleRegister(ctx) {
+    const text = ctx.message?.text || '';
+    let email = null;
+
+    if (text.startsWith('/register')) {
+        const args = text.split(/\s+/).slice(1);
+        email = args[0]?.trim();
+    }
+
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
+
+    if (!telegramUserId || !chatId) {
+        return ctx.reply('Unable to read your Telegram /chat information.');
+    }
+
+    // Reset awaiting state
+    awaitingEmails.delete(telegramUserId);
+
+    if (!email) {
+        awaitingEmails.set(telegramUserId, true);
+        return ctx.reply('សូមផ្ញើអ៊ីមែល Jira របស់អ្នក:');
+    }
+
+    return processEmailSearch(ctx, email, telegramUserId, chatId);
+}
+
+function isAwaitingEmail(telegramUserId) {
+    return awaitingEmails.has(telegramUserId);
+}
+
+async function handleConversationalEmail(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
+    const text = ctx.message?.text?.trim() || '';
+
+    if (!telegramUserId || !chatId || text.startsWith('/')) {
+        return;
+    }
+
+    // Simple email format check
+    if (!text.includes('@') || text.includes(' ')) {
+        return ctx.reply('សូមផ្ញើអ៊ីមែល Jira ដែលត្រឹមត្រូវ (ឧទាហរណ៍: name@example.com):');
+    }
+
+    return processEmailSearch(ctx, text, telegramUserId, chatId);
+}
+
 async function handleConfirmRegister(ctx) {
     await ctx.answerCbQuery().catch(() => {});
 
@@ -76,6 +115,7 @@ async function handleConfirmRegister(ctx) {
 
     // Remove from pending and persist mapping
     pendingRegistrations.delete(telegramUserId);
+    awaitingEmails.delete(telegramUserId);
 
     try {
         await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email, pending.displayName);
@@ -115,6 +155,7 @@ async function handleCancelRegister(ctx) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     if (telegramUserId) {
         pendingRegistrations.delete(telegramUserId);
+        awaitingEmails.delete(telegramUserId);
     }
 
     return ctx.editMessageText('ការចុះឈ្មោះត្រូវបានលុបចោល។ សូមប្រើ /register ម្តងទៀត។').catch(() => {});
@@ -123,5 +164,7 @@ async function handleCancelRegister(ctx) {
 module.exports = {
     handleRegister,
     handleConfirmRegister,
-    handleCancelRegister
+    handleCancelRegister,
+    isAwaitingEmail,
+    handleConversationalEmail
 };
