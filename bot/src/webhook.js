@@ -5,7 +5,7 @@ const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./
 
 function startWebhookServer(bot) {
     const app = express();
-    const port = process.env.PORT || 3000;
+    const port = process.env.PORT || 3030;
 
     // Parse JSON bodies
     app.use(express.json());
@@ -14,6 +14,7 @@ function startWebhookServer(bot) {
     app.post('/webhook/jira', async (req, res) => {
         try {
             console.log('Received Jira webhook payload (event:', req.body.issue_event_type_name, ')');
+            console.log('Received Jira webhook payload (event:', req.body, ')');
 
             if (req.body.issue_event_type_name === 'issue_assigned') {
                 const assigneeItem = req.body.changelog?.items?.find(item => item.field === 'assignee');

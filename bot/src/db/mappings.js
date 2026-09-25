@@ -38,8 +38,19 @@ function getMappingByJiraAccountId(jiraAccountId) {
     });
 }
 
+function getAllUsers() {
+    return new Promise((resolve, reject) => {
+        const query = `SELECT * FROM users`;
+        db.all(query, [], (err, rows) => {
+            if (err) return reject(err);
+            resolve(rows || []);
+        });
+    });
+}
+
 module.exports = {
     saveMapping,
     getMappingByTelegramId,
-    getMappingByJiraAccountId
+    getMappingByJiraAccountId,
+    getAllUsers
 };

@@ -1,0 +1,11 @@
+tunnel: jira-bot
+credentials-file: /home/nonroot/.cloudflared/aa97d60e-66b6-47f5-b591-2c14ead44ca3.json
+
+ingress:
+  - hostname: jirabot.kaizenops.site
+    service: http://bot:3030
+
+  - hostname: app.kaizenops.site
+    service: http://app:80
+
+  - service: http_status:404

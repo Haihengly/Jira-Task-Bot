@@ -1,6 +1,6 @@
 const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
-const { saveMapping, getMappingByTelegramId } = require('../db/mappings');
+const { saveMapping, getMappingByTelegramId, getMappingByJiraAccountId } = require('../db/mappings');
 
 // In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
 const pendingRegistrations = new Map();
@@ -29,6 +29,11 @@ async function handleRegister(ctx) {
                 `រកមិនឃើញគណនី Jira ដែលមានអ៊ីមែល "${email}" ទេ។ ` +
                 `សូមពិនិត្យអ៊ីមែលម្តងទៀត ឬសាកសួរអ្នកគ្រប់គ្រង Jira របស់អ្នក។`
             );
+        }
+
+        const existingJiraMapping = await getMappingByJiraAccountId(jiraUser.accountId);
+        if (existingJiraMapping && existingJiraMapping.telegram_user_id !== telegramUserId) {
+            return ctx.reply('គណនី Jira នេះត្រូវបានភ្ជាប់ដោយអ្នកប្រើប្រាស់ Telegram ផ្សេងរួចហើយ។');
         }
 
         const existingMapping = await getMappingByTelegramId(telegramUserId);
@@ -73,6 +78,21 @@ async function handleConfirmRegister(ctx) {
 
     try {
         await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email, pending.displayName);
+
+        // Update scoped Telegram menu for this user to unlock registered commands
+        try {
+            const registeredCommands = [
+                { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
+                { command: 'myaccount', description: 'មើលព័ត៌មានគណនីរបស់អ្នក' },
+                { command: 'todo', description: 'មើលកិច្ចការត្រូវធ្វើ' },
+                { command: 'inprogress', description: 'មើលកិច្ចការកំពុងធ្វើ' },
+                { command: 'done', description: 'មើលកិច្ចការដែលបានធ្វើរួច' },
+                { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
+            ];
+            await ctx.telegram.setMyCommands(registeredCommands, { scope: { type: 'chat', chat_id: pending.chatId } });
+        } catch (menuErr) {
+            console.error('Failed to update user command menu:', menuErr.message);
+        }
 
         let replyMessage = `ចុះឈ្មោះជោគជ័យ! 🎉\n`;
 

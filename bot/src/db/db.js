@@ -60,6 +60,15 @@ function initDb() {
                 console.log('Added display_name column to users table.');
             }
         });
+
+        // Add UNIQUE index for jira_account_id to prevent multiple Telegram users from sharing a Jira account
+        db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_jira_account_id on users(jira_account_id)`, (errIdx) => {
+            if (errIdx) {
+                console.error('Error creating unique index on jira_account_id:', errIdx.message);
+            } else {
+                console.log('Unique index on jira_account_id ensured.');
+            }
+        });
     });
 }
 
