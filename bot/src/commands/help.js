@@ -4,18 +4,15 @@ const { REGISTERED_COMMANDS, generateHelpCommandList } = require('../utils/comma
 function getStartMessage() {
     return (
         `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
-        `សូមធ្វើការចុះឈ្មោះជាមុនសិន ដើម្បីចូលប្រើប្រាស់:\n\n` +
-        `របៀបចុះឈ្មោះ:\n` +
-        `ប្រើប្រាស់ពាក្យបញ្ជា /register - ភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira\n\n` +
-        `សូមអរគុណ`
+        `សូមធ្វើការចុចប៊ូតុង "✍️ ចុះឈ្មោះ" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗\n\n` +
+        `សូមអរគុណ 🙏`
     );
 }
 
 function getUnregisteredHelpMessage() {
     return (
-        `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
-        `របៀបចុះឈ្មោះ:\n` +
-        `/register - ភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira`
+        `📖 របៀបចុះឈ្មោះ ៖\n\n` +
+        `សូមធ្វើការចុចប៊ូតុង "✍️ ចុះឈ្មោះ" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗`
     );
 }
 

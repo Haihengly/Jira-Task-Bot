@@ -159,9 +159,27 @@ function createBot() {
             return handleConversationalEmail(ctx);
         }
 
-        return ctx.reply(
-            `ការបញ្ជូលមិនត្រូវទម្រង់ចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
-        );
+        let isRegistered = false;
+        if (telegramUserId) {
+            try {
+                const userMapping = await getMappingByTelegramId(telegramUserId);
+                if (userMapping) {
+                    isRegistered = true;
+                }
+            } catch (e) {
+                // Ignore any error silently
+            }
+        }
+
+        if (isRegistered) {
+            return ctx.reply(
+                `ការបញ្ជូលមិនត្រឹមត្រូវទម្រង់ សូមចុច /help ដើម្បីមើលអំពីរបៀបនៃការប្រើប្រាស់\nសូមអរគុណ!`
+            );
+        } else {
+            return ctx.reply(
+                `ការបញ្ជូលមិនត្រឹមត្រូវទម្រង់ សូមចុច /help ដើម្បីមើលអំពីរបៀបនៃការចុះឈ្មោះ\nសូមអរគុណ!`
+            );
+        }
     });
 
     return bot;

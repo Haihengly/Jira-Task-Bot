@@ -9,6 +9,12 @@ const pendingRegistrations = new Map();
 // In-memory store for conversational email prompt
 const awaitingEmails = new Map();
 
+function isValidEmail(email) {
+    if (!email || typeof email !== 'string') return false;
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email.trim());
+}
+
 async function processEmailSearch(ctx, email, telegramUserId, chatId) {
     try {
         const jiraUser = await jiraClient.findUserByEmail(email);
@@ -79,6 +85,11 @@ async function handleRegister(ctx) {
         return ctx.reply('សូមផ្ញើអ៊ីមែល Jira របស់អ្នក:');
     }
 
+    if (!isValidEmail(email)) {
+        awaitingEmails.set(telegramUserId, true);
+        return ctx.reply('ការបញ្ចូលមិនមែនជាទម្រង់អ៊ីមែលត្រឹមត្រូវទេ សូមព្យាយាមម្តងទៀត (ឧទាហរណ៍: name@example.com):');
+    }
+
     return processEmailSearch(ctx, email, telegramUserId, chatId);
 }
 
@@ -96,8 +107,8 @@ async function handleConversationalEmail(ctx) {
     }
 
     // Simple email format check
-    if (!text.includes('@') || text.includes(' ')) {
-        return ctx.reply('សូមផ្ញើអ៊ីមែល Jira ដែលត្រឹមត្រូវ (ឧទាហរណ៍: name@example.com):');
+    if (!isValidEmail(text)) {
+        return ctx.reply('ការបញ្ចូលមិនមែនជាទម្រង់អ៊ីមែលត្រឹមត្រូវទេ សូមព្យាយាមម្តងទៀត (ឧទាហਰណ៍: name@example.com):');
     }
 
     return processEmailSearch(ctx, text, telegramUserId, chatId);
