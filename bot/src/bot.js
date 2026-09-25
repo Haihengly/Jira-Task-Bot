@@ -11,7 +11,7 @@ const {
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const { handleTasks, handleMyTasks } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
-const { handleHelp, getStartMessage } = require('./commands/help');
+const { handleHelp, getStartMessage, getRegisteredStartMessage } = require('./commands/help');
 const { getMappingByTelegramId } = require('./db/mappings');
 const {
     KEYBOARD_BUTTONS,
@@ -95,14 +95,19 @@ function createBot() {
             cancelAwaitingEmail(telegramUserId);
         }
         let isRegistered = false;
-        if (telegramUserId && chatId) {
+        let userMapping = null;
+        if (telegramUserId) {
             try {
-                const userMapping = await getMappingByTelegramId(telegramUserId);
+                userMapping = await getMappingByTelegramId(telegramUserId);
                 if (userMapping) {
                     isRegistered = true;
-                    await ctx.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: chatId } });
-                } else {
-                    await ctx.telegram.setMyCommands(UNREGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: chatId } });
+                }
+                if (chatId) {
+                    if (isRegistered) {
+                        await ctx.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: chatId } });
+                    } else {
+                        await ctx.telegram.setMyCommands(UNREGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: chatId } });
+                    }
                 }
             } catch (e) {
                 // Ignore any error silently
@@ -110,7 +115,7 @@ function createBot() {
         }
 
         if (isRegistered) {
-            return ctx.reply(getStartMessage(), getRegisteredKeyboard());
+            return ctx.reply(getRegisteredStartMessage(userMapping), getRegisteredKeyboard());
         } else {
             return ctx.reply(getStartMessage(), getUnregisteredKeyboard());
         }

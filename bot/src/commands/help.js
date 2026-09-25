@@ -10,6 +10,22 @@ function getStartMessage() {
     );
 }
 
+function getRegisteredStartMessage(mapping) {
+    let accountInfo = 'គណនីរបស់អ្នក';
+    if (mapping) {
+        if (mapping.display_name && mapping.jira_email && mapping.display_name !== mapping.jira_email) {
+            accountInfo = `${mapping.display_name} (${mapping.jira_email})`;
+        } else {
+            accountInfo = mapping.display_name || mapping.jira_email || 'គណនីរបស់អ្នក';
+        }
+    }
+    return (
+        `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
+        `អ្នកបានភ្ជាប់គណនីរួចជាមួយ ${accountInfo} ។\n` +
+        `ប្រើប្រាស់ប៊ូតុងខាងក្រោម ឬពាក្យបញ្ជា /help ដើម្បីមើលអំពីអ្វីដែលអ្នកអាចធ្វើបាន។`
+    );
+}
+
 function getUnregisteredHelpMessage() {
     return (
         `📖 របៀបចុះឈ្មោះ ៖\n\n` +
@@ -44,6 +60,7 @@ async function handleHelp(ctx) {
 module.exports = {
     handleHelp,
     getStartMessage,
+    getRegisteredStartMessage,
     getUnregisteredHelpMessage,
     getRegisteredHelpMessage
 };
