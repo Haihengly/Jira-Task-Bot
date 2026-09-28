@@ -9,7 +9,7 @@ const {
     handleConversationalEmail
 } = require('./commands/register');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
-const { handleTasks, handleMyTasks } = require('./commands/tasks');
+const { handleTasks, handleMyTasks, handleBackToMain } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
 const { handleHelp, getStartMessage, getRegisteredStartMessage } = require('./commands/help');
 const { getMappingByTelegramId } = require('./db/mappings');
@@ -57,7 +57,11 @@ function createBot() {
                 text.startsWith('/changeaccount') ||
                 text === KEYBOARD_BUTTONS.MY_ACCOUNT ||
                 text === KEYBOARD_BUTTONS.MY_TASKS ||
-                text === KEYBOARD_BUTTONS.CHANGE_ACCOUNT
+                text === KEYBOARD_BUTTONS.CHANGE_ACCOUNT ||
+                text === KEYBOARD_BUTTONS.TASK_TODO ||
+                text === KEYBOARD_BUTTONS.TASK_INPROGRESS ||
+                text === KEYBOARD_BUTTONS.TASK_DONE ||
+                text === KEYBOARD_BUTTONS.BACK
             ) {
                 if (telegramUserId) {
                     const userMapping = await getMappingByTelegramId(telegramUserId);
@@ -139,6 +143,10 @@ function createBot() {
     bot.hears(KEYBOARD_BUTTONS.CHANGE_ACCOUNT, handleChangeAccount);
     bot.hears(KEYBOARD_BUTTONS.HELP, handleHelp);
     bot.hears(KEYBOARD_BUTTONS.DELETE_ACCOUNT, handleDeleteAccount);
+    bot.hears(KEYBOARD_BUTTONS.TASK_TODO, async (ctx) => handleTasks(ctx, 'To Do'));
+    bot.hears(KEYBOARD_BUTTONS.TASK_INPROGRESS, async (ctx) => handleTasks(ctx, 'In Progress'));
+    bot.hears(KEYBOARD_BUTTONS.TASK_DONE, async (ctx) => handleTasks(ctx, 'Done'));
+    bot.hears(KEYBOARD_BUTTONS.BACK, handleBackToMain);
 
     // Handle inline button callbacks for registration confirmation
     bot.action('confirm_register', handleConfirmRegister);

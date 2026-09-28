@@ -3,6 +3,7 @@ const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('../utils');
 const { cancelAwaitingEmail } = require('./register');
+const { getRegisteredKeyboard, getTasksKeyboard, KEYBOARD_BUTTONS } = require('../utils/commands');
 
 function getMyTasksKeyboard() {
     return Markup.inlineKeyboard([
@@ -20,10 +21,41 @@ async function handleMyTasks(ctx) {
         cancelAwaitingEmail(telegramUserId);
     }
 
-    return ctx.reply(
+    await ctx.reply(
         'សូមជ្រើសរើសប្រភេទកិច្ចការដែលអ្នកចង់មើល៖',
         getMyTasksKeyboard()
     );
+
+    if (telegramUserId) {
+        try {
+            const mapping = await getMappingByTelegramId(telegramUserId);
+            if (mapping) {
+                const msg = await ctx.reply('​', getTasksKeyboard());
+                await ctx.deleteMessage(msg.message_id).catch(() => {});
+            }
+        } catch (err) {
+            console.error('Error switching to tasks keyboard:', err);
+        }
+    }
+}
+
+async function handleBackToMain(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    if (telegramUserId) {
+        cancelAwaitingEmail(telegramUserId);
+    }
+
+    // Delete the user's "Back" button tap message
+    if (ctx.message && ctx.message.message_id) {
+        await ctx.deleteMessage(ctx.message.message_id).catch(() => {});
+    }
+
+    try {
+        const msg = await ctx.reply('​', getRegisteredKeyboard());
+        await ctx.deleteMessage(msg.message_id).catch(() => {});
+    } catch (err) {
+        console.error('Error switching to main keyboard:', err);
+    }
 }
 
 async function handleTasks(ctx, status) {
@@ -157,5 +189,6 @@ async function handleTasks(ctx, status) {
 
 module.exports = {
     handleTasks,
-    handleMyTasks
+    handleMyTasks,
+    handleBackToMain
 };

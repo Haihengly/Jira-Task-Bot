@@ -19,7 +19,11 @@ const KEYBOARD_BUTTONS = {
     MY_ACCOUNT: '👤 គណនីរបស់ខ្ញុំ',
     CHANGE_ACCOUNT: '🔄 ប្តូរគណនី',
     HELP: '❓ ជំនួយ',
-    DELETE_ACCOUNT: '🔴 ផ្ដាច់គណនី'
+    DELETE_ACCOUNT: '🔴 ផ្ដាច់គណនី',
+    TASK_TODO: '📋 ត្រូវធ្វើ',
+    TASK_INPROGRESS: '🔄 កំពុងធ្វើ',
+    TASK_DONE: '✅ បានធ្វើរួច',
+    BACK: '⬅️ ត្រឡប់ក្រោយ'
 };
 
 function getRegisteredKeyboard() {
@@ -27,6 +31,13 @@ function getRegisteredKeyboard() {
         [KEYBOARD_BUTTONS.MY_TASKS, KEYBOARD_BUTTONS.MY_ACCOUNT],
         [KEYBOARD_BUTTONS.CHANGE_ACCOUNT, KEYBOARD_BUTTONS.HELP],
         [KEYBOARD_BUTTONS.DELETE_ACCOUNT]
+    ]).resize();
+}
+
+function getTasksKeyboard() {
+    return Markup.keyboard([
+        [KEYBOARD_BUTTONS.TASK_TODO, KEYBOARD_BUTTONS.TASK_INPROGRESS, KEYBOARD_BUTTONS.TASK_DONE],
+        [KEYBOARD_BUTTONS.BACK]
     ]).resize();
 }
 
@@ -46,6 +57,7 @@ module.exports = {
     REGISTERED_COMMANDS,
     KEYBOARD_BUTTONS,
     getRegisteredKeyboard,
+    getTasksKeyboard,
     getUnregisteredKeyboard,
     generateHelpCommandList
 };
