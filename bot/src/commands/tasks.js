@@ -30,8 +30,7 @@ async function handleMyTasks(ctx) {
         try {
             const mapping = await getMappingByTelegramId(telegramUserId);
             if (mapping) {
-                const msg = await ctx.reply('​', getTasksKeyboard());
-                await ctx.deleteMessage(msg.message_id).catch(() => {});
+                await ctx.reply('ឬអាចជ្រើសរើសពីប៊ូតុងខាងក្រោមក៏បាន 👇', getTasksKeyboard());
             }
         } catch (err) {
             console.error('Error switching to tasks keyboard:', err);
@@ -45,14 +44,8 @@ async function handleBackToMain(ctx) {
         cancelAwaitingEmail(telegramUserId);
     }
 
-    // Delete the user's "Back" button tap message
-    if (ctx.message && ctx.message.message_id) {
-        await ctx.deleteMessage(ctx.message.message_id).catch(() => {});
-    }
-
     try {
-        const msg = await ctx.reply('​', getRegisteredKeyboard());
-        await ctx.deleteMessage(msg.message_id).catch(() => {});
+        await ctx.reply('បានត្រឡប់ទៅកាន់ម៉ឺនុយដើមវិញ', getRegisteredKeyboard());
     } catch (err) {
         console.error('Error switching to main keyboard:', err);
     }
