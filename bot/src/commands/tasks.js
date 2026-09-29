@@ -1,19 +1,8 @@
-const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('../utils');
 const { cancelAwaitingEmail } = require('./register');
-const { getRegisteredKeyboard, getTasksKeyboard, KEYBOARD_BUTTONS } = require('../utils/commands');
-
-function getMyTasksKeyboard() {
-    return Markup.inlineKeyboard([
-        [
-            Markup.button.callback('📋 ត្រូវធ្វើ', 'tasks_todo'),
-            Markup.button.callback('🔄 កំពុងធ្វើ', 'tasks_inprogress'),
-            Markup.button.callback('✅ បានធ្វើរួច', 'tasks_done')
-        ]
-    ]);
-}
+const { getRegisteredKeyboard, getTasksKeyboard } = require('../utils/commands');
 
 async function handleMyTasks(ctx) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
@@ -21,21 +10,10 @@ async function handleMyTasks(ctx) {
         cancelAwaitingEmail(telegramUserId);
     }
 
-    await ctx.reply(
+    return ctx.reply(
         'សូមជ្រើសរើសប្រភេទកិច្ចការដែលអ្នកចង់មើល៖',
-        getMyTasksKeyboard()
+        getTasksKeyboard()
     );
-
-    if (telegramUserId) {
-        try {
-            const mapping = await getMappingByTelegramId(telegramUserId);
-            if (mapping) {
-                await ctx.reply('ឬអាចជ្រើសរើសពីប៊ូតុងខាងក្រោមក៏បាន 👇', getTasksKeyboard());
-            }
-        } catch (err) {
-            console.error('Error switching to tasks keyboard:', err);
-        }
-    }
 }
 
 async function handleBackToMain(ctx) {

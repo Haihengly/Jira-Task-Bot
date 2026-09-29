@@ -1,7 +1,9 @@
+const https = require('https');
 const { Telegraf, Markup } = require('telegraf');
 const {
     handleRegister,
     handleChangeAccount,
+    handleOAuthLogin,
     handleConfirmRegister,
     handleCancelRegister,
     isAwaitingEmail,
@@ -27,7 +29,11 @@ function createBot() {
         throw new Error('TELEGRAM_BOT_TOKEN is not defined in the environment variables.');
     }
 
-    const bot = new Telegraf(token);
+    const bot = new Telegraf(token, {
+        telegram: {
+            agent: new https.Agent({ family: 4 })
+        }
+    });
 
     // Registration middleware
     bot.use(async (ctx, next) => {
@@ -39,6 +45,8 @@ function createBot() {
             // Check if it's one of the exempt commands / buttons or awaiting email input (for plain text)
             if (
                 text.startsWith('/register') ||
+                text.startsWith('/login') ||
+                text.startsWith('/auth') ||
                 text.startsWith('/start') ||
                 text.startsWith('/help') ||
                 text.startsWith('/deleteaccount') ||
@@ -79,10 +87,7 @@ function createBot() {
                 callbackData === 'confirm_register' ||
                 callbackData === 'cancel_register' ||
                 callbackData === 'confirm_delete_account' ||
-                callbackData === 'cancel_delete_account' ||
-                callbackData === 'tasks_todo' ||
-                callbackData === 'tasks_inprogress' ||
-                callbackData === 'tasks_done'
+                callbackData === 'cancel_delete_account'
             ) {
                 return next();
             }
@@ -131,6 +136,8 @@ function createBot() {
 
     // Register primary commands
     bot.command('register', handleRegister);
+    bot.command('login', handleOAuthLogin);
+    bot.command('auth', handleOAuthLogin);
     bot.command('changeaccount', handleChangeAccount);
     bot.command('deleteaccount', handleDeleteAccount);
     bot.command('myaccount', handleMyAccount);
@@ -155,20 +162,6 @@ function createBot() {
     // Handle inline button callbacks for unregistration confirmation
     bot.action('confirm_delete_account', handleConfirmDeleteAccount);
     bot.action('cancel_delete_account', handleCancelDeleteAccount);
-
-    // Handle inline button callbacks for /mytasks
-    bot.action('tasks_todo', async (ctx) => {
-        await ctx.answerCbQuery().catch(() => {});
-        return handleTasks(ctx, 'To Do');
-    });
-    bot.action('tasks_inprogress', async (ctx) => {
-        await ctx.answerCbQuery().catch(() => {});
-        return handleTasks(ctx, 'In Progress');
-    });
-    bot.action('tasks_done', async (ctx) => {
-        await ctx.answerCbQuery().catch(() => {});
-        return handleTasks(ctx, 'Done');
-    });
 
     // Fallback handler for unrecognized messages (text, photos, voice notes, stickers, documents, etc.)
     // Placed after all command handlers so it only fires when nothing else matched

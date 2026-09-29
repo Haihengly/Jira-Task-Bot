@@ -43,6 +43,26 @@ class JiraClient {
     }
 
     /**
+     * Get a user by accountId
+     * @param {string} accountId
+     * @returns {Promise<Object|null>} user object or null if not found / 404
+     */
+    async getUserByAccountId(accountId) {
+        try {
+            const response = await this.client.get(`/rest/api/3/user`, {
+                params: { accountId }
+            });
+            return response.data;
+        } catch (error) {
+            if (error.response && error.response.status === 404) {
+                return null;
+            }
+            console.error(`Error retrieving Jira user by accountId ${accountId}:`, error.response?.data || error.message);
+            throw error;
+        }
+    }
+
+    /**
      * Get an issue by key
      * @param {string} issueKey
      * @param {string} [fields='summary,priority,duedate,project']

@@ -1,5 +1,9 @@
 const express = require('express');
-const { getMappingByJiraAccountId } = require('./db/mappings');
+const axios = require('axios');
+const { getMappingByJiraAccountId, getMappingByTelegramId, saveMapping } = require('./db/mappings');
+const { getRegisteredKeyboard, REGISTERED_COMMANDS } = require('./utils/commands');
+const { cancelAwaitingEmail, setPendingRegistration } = require('./commands/register');
+const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
 
@@ -48,6 +52,295 @@ function startWebhookServer(bot) {
     // Parse JSON bodies
     app.use(express.json());
     app.use(express.urlencoded({ extended: true }));
+
+    app.get('/auth/jira', (req, res) => {
+        const state = req.query.state;
+        if (!state) {
+            return res.status(400).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                    <h2 style="color: #333; margin-top: 20px;">តំណភ្ជាប់មិនត្រឹមត្រូវ!</h2>
+                    <p style="color: #666; font-size: 16px;">តំណភ្ជាប់នេះមិនមានសុពលភាព ឬហួសកំណត់ហើយ។ សូមព្យាយាមម្តងទៀតពី Telegram។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+
+        const stateEntry = validateOAuthState(state);
+        if (!stateEntry) {
+            return res.status(400).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                    <h2 style="color: #333; margin-top: 20px;">តំណភ្ជាប់មិនត្រឹមត្រូវ!</h2>
+                    <p style="color: #666; font-size: 16px;">តំណភ្ជាប់នេះមិនមានសុពលភាព ឬហួសកំណត់ហើយ។ សូមព្យាយាមម្តងទៀតពី Telegram។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+
+        const clientId = process.env.ATLASSIAN_CLIENT_ID;
+        const redirectUri = 'https://jirabot.kaizenops.site/auth/callback';
+        const authUrl = `https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=${clientId}&scope=read%3Ame&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&response_type=code&prompt=consent`;
+        res.redirect(authUrl);
+    });
+
+    app.get('/auth/callback', async (req, res) => {
+        const { code, state, error, error_description } = req.query;
+        if (error) {
+            if (state) {
+                consumeOAuthState(state);
+            }
+            return res.status(400).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                    <h2 style="color: #333; margin-top: 20px;">ការចុះឈ្មោះបានបរាជ័យ!</h2>
+                    <p style="color: #666; font-size: 16px;">បញ្ហា៖ ${escapeMarkdown(error_description || error)}</p>
+                    <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយព្យាយាមម្តងទៀតនៅក្នុង Telegram។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+        if (!code || !state) {
+            return res.status(400).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                    <h2 style="color: #333; margin-top: 20px;">តំណភ្ជាប់មិនត្រឹមត្រូវ!</h2>
+                    <p style="color: #666; font-size: 16px;">Missing code or state.</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+
+        const stateEntry = consumeOAuthState(state);
+        if (!stateEntry) {
+            return res.status(400).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                    <h2 style="color: #333; margin-top: 20px;">តំណភ្ជាប់មិនត្រឹមត្រូវ!</h2>
+                    <p style="color: #666; font-size: 16px;">តំណភ្ជាប់នេះត្រូវបានប្រើប្រាស់រួច ឬហួសកំណត់ហើយ។ សូមព្យាយាមម្តងទៀតពី Telegram។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+
+        const { telegramUserId, chatId } = stateEntry;
+        const redirectUri = 'https://jirabot.kaizenops.site/auth/callback';
+
+        try {
+            const tokenResponse = await axios.post('https://auth.atlassian.com/oauth/token', {
+                grant_type: 'authorization_code',
+                client_id: process.env.ATLASSIAN_CLIENT_ID,
+                client_secret: process.env.ATLASSIAN_CLIENT_SECRET,
+                code: code,
+                redirect_uri: redirectUri
+            });
+
+            const accessToken = tokenResponse.data.access_token;
+
+            const meResponse = await axios.get('https://api.atlassian.com/me', {
+                headers: {
+                    Authorization: `Bearer ${accessToken}`
+                }
+            });
+
+            const { account_id, email: meEmail, name } = meResponse.data;
+
+            // Verify account exists in Jira and fetch Jira profile
+            let jiraUser = null;
+            try {
+                jiraUser = await jiraClient.getUserByAccountId(account_id);
+            } catch (jiraErr) {
+                console.error('Error fetching Jira user by accountId during OAuth callback:', jiraErr.message);
+            }
+
+            if (!jiraUser || !jiraUser.accountId) {
+                return res.status(404).send(`
+                    <html>
+                    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                    <body style="background-color: #f0f2f5;">
+                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                        <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                        <h2 style="color: #333; margin-top: 20px;">រកមិនឃើញគណនី Jira!</h2>
+                        <p style="color: #666; font-size: 16px;">គណនី Atlassian របស់អ្នកមិនមានសិទ្ធិចូលប្រើប្រាស់ Jira នេះទេ ឬមិនត្រូវបានរកឃើញ។</p>
+                    </div>
+                    </body>
+                    </html>
+                `);
+            }
+
+            const verifiedAccountId = jiraUser.accountId;
+            if (process.env.DEBUG === 'true') {
+                console.log('OAuth verified Jira account:', { atlassianAccountId: account_id, jiraAccountId: verifiedAccountId });
+            }
+
+            const finalEmail = meEmail || jiraUser.emailAddress;
+            if (!finalEmail) {
+                return res.status(400).send(`
+                    <html>
+                    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                    <body style="background-color: #f0f2f5;">
+                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                        <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                        <h2 style="color: #333; margin-top: 20px;">មិនមានអ៊ីមែល!</h2>
+                        <p style="color: #666; font-size: 16px;">មិនអាចទាញយកអ៊ីមែលពីគណនី Jira របស់អ្នកបានទេ។ សូមពិនិត្យមើលការកំណត់ភាពឯកជននៃអ៊ីមែលនៅក្នុងគណនី Atlassian របស់អ្នក។</p>
+                    </div>
+                    </body>
+                    </html>
+                `);
+            }
+
+            const displayName = jiraUser.displayName || name || finalEmail;
+
+            // Check if Jira account mapped to another Telegram user
+            const existingMapping = await getMappingByJiraAccountId(verifiedAccountId);
+            if (existingMapping && existingMapping.telegram_user_id !== telegramUserId) {
+                return res.send(`
+                    <html>
+                    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                    <body style="background-color: #f0f2f5;">
+                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                        <h1 style="color: orange; font-size: 48px; margin: 0;">⚠️</h1>
+                        <h2 style="color: #333; margin-top: 20px;">មិនអាចភ្ជាប់បានទេ!</h2>
+                        <p style="color: #666; font-size: 16px;">គណនី Jira នេះត្រូវបានភ្ជាប់ជាមួយគណនី Telegram ផ្សេងរួចហើយ។</p>
+                        <p style="color: #666; font-size: 16px;">សូមផ្តាច់គណនីនោះសិន ឬប្រើប្រាស់គណនី Jira ផ្សេង។</p>
+                    </div>
+                    </body>
+                    </html>
+                `);
+            }
+
+            cancelAwaitingEmail(telegramUserId);
+
+            // Check if this Telegram user already has an existing mapping
+            const existingUserMapping = await getMappingByTelegramId(telegramUserId);
+
+            if (existingUserMapping) {
+                // If it's already linked to this exact Jira account
+                if (existingUserMapping.jira_account_id === verifiedAccountId) {
+                    const message = `ℹ️ គណនី Jira របស់អ្នក (${finalEmail}) ត្រូវបានភ្ជាប់រួចរាល់ហើយ។\n\n` +
+                                    `សូមប្រើប្រាស់ប៊ូតុងខាងក្រោមដើម្បីមើលកិច្ចការរបស់អ្នក។ 👇`;
+
+                    await bot.telegram.sendMessage(chatId, message, getRegisteredKeyboard());
+                    await bot.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: chatId } }).catch(err => console.error(err));
+
+                    return res.send(`
+                        <html>
+                        <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                        <body style="background-color: #f0f2f5;">
+                        <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                            <h1 style="color: #4CAF50; font-size: 48px; margin: 0;">✅</h1>
+                            <h2 style="color: #333; margin-top: 20px;">គណនីបានភ្ជាប់រួចហើយ!</h2>
+                            <p style="color: #666; font-size: 16px;">គណនីរបស់អ្នក (${finalEmail}) ត្រូវបានភ្ជាប់រួចរាល់ហើយ។</p>
+                            <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយត្រឡប់ទៅ Telegram វិញបាន។</p>
+                        </div>
+                        </body>
+                        </html>
+                    `);
+                }
+
+                // If user is switching to a different Jira account, require explicit confirmation
+                setPendingRegistration(telegramUserId, {
+                    status: 'PENDING_CONFIRM',
+                    chatId,
+                    accountId: verifiedAccountId,
+                    email: finalEmail,
+                    displayName,
+                    existingMapping: existingUserMapping
+                });
+
+                const oldEmail = existingUserMapping.jira_email || 'គណនីមុន';
+                const confirmMsg =
+                    `⚠️ ការបញ្ជាក់ប្តូរគណនី Jira:\n\n` +
+                    `អ្នកបានផ្ទៀងផ្ទាត់គណនី Atlassian ថ្មី: ${displayName} (${finalEmail})\n` +
+                    `តើអ្នកពិតជាចង់ប្តូរគណនីពី ${oldEmail} ទៅ ${finalEmail} មែនទេ? សូមជ្រើសរើសខាងក្រោម៖`;
+
+                await bot.telegram.sendMessage(chatId, confirmMsg, {
+                    reply_markup: {
+                        inline_keyboard: [
+                            [
+                                { text: '✅ បាទ/ចាស (ប្តូរគណនី)', callback_data: 'confirm_register' },
+                                { text: '❌ ទេ (បោះបង់)', callback_data: 'cancel_register' }
+                            ]
+                        ]
+                    }
+                });
+
+                return res.send(`
+                    <html>
+                    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                    <body style="background-color: #f0f2f5;">
+                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                        <h1 style="color: #FF9800; font-size: 48px; margin: 0;">⏳</h1>
+                        <h2 style="color: #333; margin-top: 20px;">សូមបញ្ជាក់នៅក្នុង Telegram!</h2>
+                        <p style="color: #666; font-size: 16px;">អ្នកមានគណនី Jira ដែលបានភ្ជាប់រួចហើយ (${oldEmail})។</p>
+                        <p style="color: #666; font-size: 16px;">សារបញ្ជាក់ត្រូវបានផ្ញើទៅកាន់ Telegram របស់អ្នកដើម្បីអនុញ្ញាតការប្តូរទៅកាន់ ${finalEmail}។</p>
+                        <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយត្រឡប់ទៅកាន់ Telegram បាន។</p>
+                    </div>
+                    </body>
+                    </html>
+                `);
+            }
+
+            // Save mapping (telegramUserId, chatId, verifiedAccountId, finalEmail, displayName)
+            await saveMapping(telegramUserId, chatId, verifiedAccountId, finalEmail, displayName);
+
+            // Send confirmation Telegram message
+            const message = `🎉 សូមអបអរសាទរ! គណនី Jira របស់អ្នកពិតជាត្រឹមត្រូវហើយត្រូវបានភ្ជាប់ដោយជោគជ័យ។\n\n` +
+                            `👤 គណនី: ${finalEmail}\n\n` +
+                            `សូមប្រើប្រាស់ប៊ូតុងខាងក្រោមដើម្បីមើលកិច្ចការរបស់អ្នក។ 👇`;
+
+            await bot.telegram.sendMessage(chatId, message, getRegisteredKeyboard());
+            await bot.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: chatId } }).catch(err => console.error(err));
+
+            res.send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: #4CAF50; font-size: 48px; margin: 0;">✅</h1>
+                    <h2 style="color: #333; margin-top: 20px;">ការចុះឈ្មោះជោគជ័យ!</h2>
+                    <p style="color: #666; font-size: 16px;">គណនីរបស់អ្នក (${finalEmail}) ត្រូវបានភ្ជាប់។</p>
+                    <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយត្រឡប់ទៅ Telegram វិញបាន។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        } catch (err) {
+            console.error('Error in OAuth callback:', err.response?.data || err.message);
+            res.status(500).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                    <h2 style="color: #333; margin-top: 20px;">មានបញ្ហា!</h2>
+                    <p style="color: #666; font-size: 16px;">បរាជ័យក្នុងការភ្ជាប់គណនីរបស់អ្នក។ សូមព្យាយាមម្តងទៀត។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+    });
 
     app.post('/webhook/jira', async (req, res) => {
         try {

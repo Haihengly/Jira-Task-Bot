@@ -2,12 +2,22 @@ const { Markup } = require('telegraf');
 const jiraClient = require('../jira/client');
 const { saveMapping, getMappingByTelegramId, getMappingByJiraAccountId } = require('../db/mappings');
 const { REGISTERED_COMMANDS, getRegisteredKeyboard } = require('../utils/commands');
+const { createOAuthState } = require('../auth/state');
 
 // In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
 const pendingRegistrations = new Map();
 
 // In-memory store for conversational email prompt
 const awaitingEmails = new Map();
+
+function isEmailRegistrationAllowed() {
+    return process.env.ALLOW_EMAIL_REGISTRATION !== 'false';
+}
+
+function getOAuthUrl(telegramUserId, chatId) {
+    const state = createOAuthState(telegramUserId, chatId);
+    return `https://jirabot.kaizenops.site/auth/jira?state=${state}`;
+}
 
 function isValidEmail(email) {
     if (!email || typeof email !== 'string') return false;
@@ -78,6 +88,19 @@ async function handleRegister(ctx) {
         console.error('Error checking existing mapping in /register:', err);
     }
 
+    // Reset awaiting state
+    awaitingEmails.delete(telegramUserId);
+
+    if (!isEmailRegistrationAllowed()) {
+        const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+        return ctx.reply(
+            'ការចុះឈ្មោះតាមរយៈការបញ្ចូលអ៊ីមែលត្រូវបានបិទ។ សូមចុចប៊ូតុងខាងក្រោមដើម្បីភ្ជាប់គណនី Jira របស់អ្នកដោយសុវត្ថិភាពតាមរយៈ Atlassian OAuth 2.0៖',
+            Markup.inlineKeyboard([
+                Markup.button.url('🔗 ភ្ជាប់គណនី Atlassian', oauthUrl)
+            ])
+        );
+    }
+
     const text = ctx.message?.text || '';
     let email = null;
 
@@ -86,12 +109,15 @@ async function handleRegister(ctx) {
         email = args[0]?.trim();
     }
 
-    // Reset awaiting state
-    awaitingEmails.delete(telegramUserId);
-
     if (!email) {
         awaitingEmails.set(telegramUserId, true);
-        return ctx.reply('សូមផ្ញើអ៊ីមែល Jira របស់អ្នក:');
+        const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+        return ctx.reply(
+            'សូមផ្ញើអ៊ីមែល Jira របស់អ្នក ឬចុះឈ្មោះតាមរយៈគណនី Atlassian របស់អ្នក៖',
+            Markup.inlineKeyboard([
+                Markup.button.url('🔗 ចុះឈ្មោះដោយសុវត្ថិភាពតាមរយៈ Atlassian', oauthUrl)
+            ])
+        );
     }
 
     if (!isValidEmail(email)) {
@@ -121,6 +147,19 @@ async function handleChangeAccount(ctx) {
         return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះទេ។ សូមប្រើ /register ជាមុនសិន។');
     }
 
+    // Reset awaiting state
+    awaitingEmails.delete(telegramUserId);
+
+    if (!isEmailRegistrationAllowed()) {
+        const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+        return ctx.reply(
+            'ការប្តូរគណនីតាមរយៈការបញ្ចូលអ៊ីមែលត្រូវបានបិទ។ សូមចុចប៊ូតុងខាងក្រោមដើម្បីប្តូរ និងភ្ជាប់គណនី Jira របស់អ្នកដោយសុវត្ថិភាពតាមរយៈ Atlassian OAuth 2.0៖',
+            Markup.inlineKeyboard([
+                Markup.button.url('🔗 ភ្ជាប់គណនី Atlassian ថ្មី', oauthUrl)
+            ])
+        );
+    }
+
     const text = ctx.message?.text || '';
     let email = null;
 
@@ -129,13 +168,16 @@ async function handleChangeAccount(ctx) {
         email = args[0]?.trim();
     }
 
-    // Reset awaiting state
-    awaitingEmails.delete(telegramUserId);
-
     if (!email) {
         awaitingEmails.set(telegramUserId, true);
         const currentEmail = existingMapping.jira_email || 'គណនីមុន';
-        return ctx.reply(`អ្នកបានចុះឈ្មោះរួចជាមួយ ${currentEmail}។\nសូមផ្ញើអ៊ីមែល Jira ថ្មីដែលអ្នកចង់ប្តូរទៅ:`);
+        const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+        return ctx.reply(
+            `អ្នកបានចុះឈ្មោះរួចជាមួយ ${currentEmail}។\nសូមផ្ញើអ៊ីមែល Jira ថ្មីដែលអ្នកចង់ប្តូរទៅ ឬភ្ជាប់តាមរយៈគណនី Atlassian របស់អ្នក៖`,
+            Markup.inlineKeyboard([
+                Markup.button.url('🔗 ភ្ជាប់គណនី Atlassian ថ្មី', oauthUrl)
+            ])
+        );
     }
 
     if (!isValidEmail(email)) {
@@ -163,6 +205,17 @@ async function handleConversationalEmail(ctx) {
 
     if (!telegramUserId || !chatId || text.startsWith('/')) {
         return;
+    }
+
+    if (!isEmailRegistrationAllowed()) {
+        awaitingEmails.delete(telegramUserId);
+        const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+        return ctx.reply(
+            'ការចុះឈ្មោះតាមរយៈការបញ្ចូលអ៊ីមែលត្រូវបានបិទ។ សូមចុចប៊ូតុងខាងក្រោមដើម្បីភ្ជាប់គណនី Jira របស់អ្នកដោយសុវត្ថិភាពតាមរយៈ Atlassian OAuth 2.0៖',
+            Markup.inlineKeyboard([
+                Markup.button.url('🔗 ភ្ជាប់គណនី Atlassian', oauthUrl)
+            ])
+        );
     }
 
     // Simple email format check
@@ -207,7 +260,7 @@ async function handleConfirmRegister(ctx) {
             `គណនី Telegram ត្រូវបានភ្ជាប់ជាមួយគណនី Jira (${pending.displayName || pending.email})។\n\n` +
             `ឥឡូវនេះអ្នកអាចប្រើ:\n` +
             `/myaccount - មើលព័ត៌មានគណនីរបស់អ្នក\n` +
-            `/mytasks - មើលកិច្ចការរបស់អ្នក (មានប៊ូតុងជ្រើសរើស)\n` +
+            `/mytasks - មើលកិច្ចការរបស់អ្នក\n` +
             `/changeaccount - ប្តូរគណនី Jira\n` +
             `/deleteaccount - ផ្ដាច់គណនី Jira\n` +
             `/help - មើលរបៀបប្រើប្រាស់ និងពាក្យបញ្ជាទាំងអស់`;
@@ -232,12 +285,37 @@ async function handleCancelRegister(ctx) {
     return ctx.editMessageText('ការចុះឈ្មោះត្រូវបានលុបចោល។ សូមប្រើ /register ម្តងទៀត។').catch(() => {});
 }
 
+async function handleOAuthLogin(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
+    if (!telegramUserId || !chatId) {
+        return ctx.reply('Unable to read your Telegram user /chat ID.');
+    }
+
+    cancelAwaitingEmail(telegramUserId);
+    const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+
+    return ctx.reply(
+        'សូមចុចប៊ូតុងខាងក្រោមដើម្បីភ្ជាប់គណនី Jira របស់អ្នកដោយសុវត្ថិភាពតាមរយៈ Atlassian OAuth 2.0៖',
+        Markup.inlineKeyboard([
+            Markup.button.url('🔗 ភ្ជាប់គណនី Atlassian', oauthUrl)
+        ])
+    );
+}
+
 module.exports = {
     handleRegister,
     handleChangeAccount,
+    handleOAuthLogin,
     handleConfirmRegister,
     handleCancelRegister,
     isAwaitingEmail,
+    setPendingRegistration,
     cancelAwaitingEmail,
     handleConversationalEmail
 };
+
+
+function setPendingRegistration(telegramUserId, params) {
+    pendingRegistrations.set(telegramUserId, params);
+}

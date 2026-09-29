@@ -5,6 +5,7 @@ WORKDIR /app
 
 # Copy package configurations and install dependencies
 COPY package*.json ./
+RUN apk add --no-cache python3 make g++ sqlite-dev
 RUN npm install
 
 # Copy application source

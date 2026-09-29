@@ -1,3 +1,9 @@
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
+const https = require('https');
+https.globalAgent.options.family = 4;
+
 require('dotenv').config();
 const { createBot } = require('./bot');
 const { startWebhookServer } = require('./webhook');
@@ -12,7 +18,12 @@ async function start() {
         startWebhookServer(bot);
 
         // 1. Set global Telegram command menu for EVERYONE (Unregistered default limit)
-        await bot.telegram.setMyCommands(UNREGISTERED_COMMANDS, { scope: { type: 'default' } });
+        try {
+            await bot.telegram.setMyCommands(UNREGISTERED_COMMANDS, { scope: { type: 'default' } });
+            console.log('Global command menu set successfully.');
+        } catch (cmdErr) {
+            console.error('Warning: Failed to set global default command menu at startup (continuing bot anyway):', cmdErr.message);
+        }
 
         // 2. Fetch all registered users and upgrade their specific menus
         try {

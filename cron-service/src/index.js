@@ -1,4 +1,8 @@
+const dns = require('dns');
+dns.setDefaultResultOrder('ipv4first');
+
 require('dotenv').config();
+const https = require('https');
 const cron = require('node-cron');
 const { Telegraf } = require('telegraf');
 const { getAllRegisteredUsers } = require('./db');
@@ -11,7 +15,11 @@ if (!botToken) {
     process.exit(1);
 }
 
-const bot = new Telegraf(botToken);
+const bot = new Telegraf(botToken, {
+    telegram: {
+        agent: new https.Agent({ family: 4 })
+    }
+});
 
 /**
  * Execute the daily 8am reminder job.
