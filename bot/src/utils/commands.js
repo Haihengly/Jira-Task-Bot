@@ -14,7 +14,7 @@ const REGISTERED_COMMANDS = [
 ];
 
 const KEYBOARD_BUTTONS = {
-    REGISTER: '✍️ ចុះឈ្មោះ',
+    REGISTER: '🔗 ភ្ជាប់គណនី Jira',
     MY_TASKS: '📋 កិច្ចការរបស់ខ្ញុំ',
     MY_ACCOUNT: '👤 គណនីរបស់ខ្ញុំ',
     CHANGE_ACCOUNT: '🔄 ប្តូរគណនី',

@@ -3,6 +3,10 @@ const { getMappingByTelegramId } = require('../db/mappings');
 const { cancelAwaitingEmail } = require('./register');
 
 async function handleMyAccount(ctx) {
+    if (ctx.payload && ctx.payload.trim().length > 0) {
+        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /myaccount ដោយគ្មានពាក្យផ្សេងទៀត។');
+    }
+
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
 
     if (!telegramUserId) {

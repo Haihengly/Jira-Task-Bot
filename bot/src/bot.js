@@ -3,12 +3,9 @@ const { Telegraf, Markup } = require('telegraf');
 const {
     handleRegister,
     handleChangeAccount,
-    handleOAuthLogin,
     handleConfirmRegister,
     handleCancelRegister,
-    isAwaitingEmail,
     cancelAwaitingEmail,
-    handleConversationalEmail
 } = require('./commands/register');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const { handleTasks, handleMyTasks, handleBackToMain } = require('./commands/tasks');
@@ -45,15 +42,12 @@ function createBot() {
             // Check if it's one of the exempt commands / buttons or awaiting email input (for plain text)
             if (
                 text.startsWith('/register') ||
-                text.startsWith('/login') ||
-                text.startsWith('/auth') ||
                 text.startsWith('/start') ||
                 text.startsWith('/help') ||
                 text.startsWith('/deleteaccount') ||
                 text === KEYBOARD_BUTTONS.REGISTER ||
                 text === KEYBOARD_BUTTONS.HELP ||
-                text === KEYBOARD_BUTTONS.DELETE_ACCOUNT ||
-                (telegramUserId && isAwaitingEmail(telegramUserId) && !text.startsWith('/'))
+                text === KEYBOARD_BUTTONS.DELETE_ACCOUNT
             ) {
                 return next();
             }
@@ -136,8 +130,6 @@ function createBot() {
 
     // Register primary commands
     bot.command('register', handleRegister);
-    bot.command('login', handleOAuthLogin);
-    bot.command('auth', handleOAuthLogin);
     bot.command('changeaccount', handleChangeAccount);
     bot.command('deleteaccount', handleDeleteAccount);
     bot.command('myaccount', handleMyAccount);
@@ -168,11 +160,6 @@ function createBot() {
     bot.on('message', async (ctx) => {
         const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
         const text = ctx.message?.text?.trim();
-
-        // If user is awaiting conversational email input and message is plain text (not a command starting with /)
-        if (telegramUserId && isAwaitingEmail(telegramUserId) && text && !text.startsWith('/')) {
-            return handleConversationalEmail(ctx);
-        }
 
         let isRegistered = false;
         if (telegramUserId) {

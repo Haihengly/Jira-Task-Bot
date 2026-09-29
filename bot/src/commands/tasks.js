@@ -5,6 +5,10 @@ const { cancelAwaitingEmail } = require('./register');
 const { getRegisteredKeyboard, getTasksKeyboard } = require('../utils/commands');
 
 async function handleMyTasks(ctx) {
+    if (ctx.payload && ctx.payload.trim().length > 0) {
+        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /mytasks ដោយគ្មានពាក្យផ្សេងទៀត។');
+    }
+
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     if (telegramUserId) {
         cancelAwaitingEmail(telegramUserId);

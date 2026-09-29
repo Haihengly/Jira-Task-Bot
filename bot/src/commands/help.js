@@ -5,7 +5,7 @@ const { cancelAwaitingEmail } = require('./register');
 function getStartMessage() {
     return (
         `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
-        `សូមធ្វើការចុចប៊ូតុង "✍️ ចុះឈ្មោះ" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗\n\n` +
+        `សូមធ្វើការចុចប៊ូតុង "🔗 ភ្ជាប់គណនី Jira" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗\n\n` +
         `សូមអរគុណ 🙏`
     );
 }
@@ -29,7 +29,7 @@ function getRegisteredStartMessage(mapping) {
 function getUnregisteredHelpMessage() {
     return (
         `📖 របៀបចុះឈ្មោះ ៖\n\n` +
-        `សូមធ្វើការចុចប៊ូតុង "✍️ ចុះឈ្មោះ" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗`
+        `សូមធ្វើការចុចប៊ូតុង "🔗 ភ្ជាប់គណនី Jira" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗`
     );
 }
 
@@ -41,6 +41,10 @@ function getRegisteredHelpMessage() {
 }
 
 async function handleHelp(ctx) {
+    if (ctx.payload && ctx.payload.trim().length > 0) {
+        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /help ដោយគ្មានពាក្យផ្សេងទៀត។');
+    }
+
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     if (telegramUserId) {
         cancelAwaitingEmail(telegramUserId);
