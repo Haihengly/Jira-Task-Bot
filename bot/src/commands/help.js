@@ -1,6 +1,5 @@
 const { getMappingByTelegramId } = require('../db/mappings');
 const { REGISTERED_COMMANDS, generateHelpCommandList } = require('../utils/commands');
-const { cancelAwaitingEmail } = require('./register');
 
 function getStartMessage() {
     return (
@@ -46,9 +45,6 @@ async function handleHelp(ctx) {
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    if (telegramUserId) {
-        cancelAwaitingEmail(telegramUserId);
-    }
     let userMapping = null;
     if (telegramUserId) {
         userMapping = await getMappingByTelegramId(telegramUserId);

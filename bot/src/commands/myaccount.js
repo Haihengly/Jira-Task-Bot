@@ -1,6 +1,5 @@
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
-const { cancelAwaitingEmail } = require('./register');
 
 async function handleMyAccount(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
@@ -12,8 +11,6 @@ async function handleMyAccount(ctx) {
     if (!telegramUserId) {
         return ctx.reply('Unable to read your Telegram user ID.');
     }
-
-    cancelAwaitingEmail(telegramUserId);
 
     try {
         const mapping = await getMappingByTelegramId(telegramUserId);

@@ -23,26 +23,6 @@ class JiraClient {
     }
 
     /**
-     * Search for a user by email
-     * @param {string} email
-     * @returns {Promise<Object|null>} user object or null if not found
-     */
-    async findUserByEmail(email) {
-        try {
-            const response = await this.client.get(`/rest/api/3/user/search`, {
-                params: { query: email }
-            });
-            if (response.data && response.data.length > 0) {
-                return response.data[0];
-            }
-            return null;
-        } catch (error) {
-            console.error('Error finding user in Jira:', error.response?.data || error.message);
-            throw error;
-        }
-    }
-
-    /**
      * Get a user by accountId
      * @param {string} accountId
      * @returns {Promise<Object|null>} user object or null if not found / 404

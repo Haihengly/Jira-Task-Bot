@@ -2,7 +2,7 @@ const express = require('express');
 const axios = require('axios');
 const { getMappingByJiraAccountId, getMappingByTelegramId, saveMapping } = require('./db/mappings');
 const { getRegisteredKeyboard, REGISTERED_COMMANDS } = require('./utils/commands');
-const { cancelAwaitingEmail, setPendingRegistration } = require('./commands/register');
+const { setPendingRegistration } = require('./commands/register');
 const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
@@ -277,8 +277,6 @@ function startWebhookServer(bot) {
                     </html>
                 `);
             }
-
-            cancelAwaitingEmail(telegramUserId);
 
             // Check if this Telegram user already has an existing mapping
             const existingUserMapping = await getMappingByTelegramId(telegramUserId);

@@ -5,7 +5,6 @@ const {
     handleChangeAccount,
     handleConfirmRegister,
     handleCancelRegister,
-    cancelAwaitingEmail,
 } = require('./commands/register');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const { handleTasks, handleMyTasks, handleBackToMain } = require('./commands/tasks');
@@ -39,7 +38,7 @@ function createBot() {
             const text = ctx.message.text.trim();
             const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
 
-            // Check if it's one of the exempt commands / buttons or awaiting email input (for plain text)
+            // Check if it's one of the exempt commands / buttons
             if (
                 text.startsWith('/register') ||
                 text.startsWith('/start') ||
@@ -94,9 +93,7 @@ function createBot() {
     bot.start(async (ctx) => {
         const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
         const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
-        if (telegramUserId) {
-            cancelAwaitingEmail(telegramUserId);
-        }
+
         let isRegistered = false;
         let userMapping = null;
         if (telegramUserId) {
