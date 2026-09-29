@@ -7,6 +7,11 @@ const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
 
+function normalizeUrl(url) {
+    if (!url || typeof url !== 'string') return '';
+    return url.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
+}
+
 async function enrichIssueFields(issueKey, issueFields) {
     if (issueKey && (!issueFields || issueFields.priority === undefined || issueFields.duedate === undefined || !issueFields.project || !issueFields.summary)) {
         try {
@@ -88,7 +93,7 @@ function startWebhookServer(bot) {
 
         const clientId = process.env.ATLASSIAN_CLIENT_ID;
         const redirectUri = 'https://jirabot.kaizenops.site/auth/callback';
-        const authUrl = `https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=${clientId}&scope=read%3Ame&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&response_type=code&prompt=consent`;
+        const authUrl = `https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=${clientId}&scope=${encodeURIComponent('read:me read:jira-user')}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&response_type=code&prompt=consent`;
         res.redirect(authUrl);
     });
 
@@ -156,6 +161,50 @@ function startWebhookServer(bot) {
             });
 
             const accessToken = tokenResponse.data.access_token;
+
+            // Verify if authorized site matches our Jira instance
+            let hasAccessToOurSite = false;
+            try {
+                const resourcesResponse = await axios.get('https://api.atlassian.com/oauth/token/accessible-resources', {
+                    headers: {
+                        Authorization: `Bearer ${accessToken}`,
+                        Accept: 'application/json'
+                    }
+                });
+
+                const expectedUrl = normalizeUrl(process.env.JIRA_BASE_URL);
+                const expectedCloudId = process.env.JIRA_CLOUD_ID ? process.env.JIRA_CLOUD_ID.trim() : null;
+
+                if (Array.isArray(resourcesResponse.data)) {
+                    hasAccessToOurSite = resourcesResponse.data.some(resource => {
+                        if (expectedCloudId && resource.id === expectedCloudId) return true;
+                        const resourceUrl = normalizeUrl(resource.url);
+                        return Boolean(expectedUrl && resourceUrl && resourceUrl === expectedUrl);
+                    });
+                }
+
+                if (process.env.DEBUG === 'true') {
+                    console.log('OAuth accessible resources:', resourcesResponse.data?.map(r => ({ id: r.id, url: r.url })));
+                    console.log('Expected Jira site URL:', expectedUrl, 'hasAccessToOurSite:', hasAccessToOurSite);
+                }
+            } catch (resourceErr) {
+                console.error('Error fetching accessible resources:', resourceErr.message);
+            }
+
+            if (!hasAccessToOurSite) {
+                return res.status(403).send(`
+                    <html>
+                    <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                    <body style="background-color: #f0f2f5;">
+                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                        <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
+                        <h2 style="color: #333; margin-top: 20px;">ការអនុញ្ញាតត្រូវបានបដិសេធ!</h2>
+                        <p style="color: #666; font-size: 16px;">អ្នកបានជ្រើសរើស Site Jira ដែលមិនត្រឹមត្រូវ។ សូមជ្រើសរើស Site ដែលជាផ្លូវការរបស់យើង ពេលអ្នកអនុញ្ញាតកម្មវិធី។</p>
+                    </div>
+                    </body>
+                    </html>
+                `);
+            }
 
             const meResponse = await axios.get('https://api.atlassian.com/me', {
                 headers: {
