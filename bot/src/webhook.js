@@ -178,6 +178,62 @@ function startWebhookServer(bot) {
             `);
         }
 
+        let currentUserMapping = null;
+        if (telegramUserId) {
+            try {
+                currentUserMapping = await getMappingByTelegramId(telegramUserId);
+            } catch (err) {
+                console.error('Error fetching user mapping for stale state check:', err);
+            }
+        }
+
+        // Stale state check: did their registration status change since the link was generated?
+        if (source === 'changeaccount' && !currentUserMapping) {
+            await sendOAuthFailureMessage(
+                bot,
+                chatId,
+                `អ្នកមិនទាន់បានភ្ជាប់គណនីនៅឡើយទេ។\n\nតំណភ្ជាប់សម្រាប់ការប្តូរគណនីនេះមិនអាចប្រើបានទេ។`,
+                source,
+                `សូមប្រើ /link ជំនួសវិញ ដើម្បីភ្ជាប់គណនីជាលើកដំបូង។`
+            );
+            return res.status(400).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: orange; font-size: 48px; margin: 0;">⚠️</h1>
+                    <h2 style="color: #333; margin-top: 20px;">មិនត្រឹមត្រូវ!</h2>
+                    <p style="color: #666; font-size: 16px;">តំណភ្ជាប់នេះគឺសម្រាប់ប្តូរគណនី ប៉ុន្តែអ្នកមិនទាន់មានគណនីដែលបានភ្ជាប់នៅឡើយទេ។</p>
+                    <p style="color: #666; font-size: 16px;">សូមប្រើ /link នៅក្នុង Telegram ដើម្បីភ្ជាប់គណនីជាលើកដំបូង។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+
+        if (source === 'link' && currentUserMapping) {
+            await sendOAuthFailureMessage(
+                bot,
+                chatId,
+                `អ្នកបានភ្ជាប់គណនីរួចហើយ។\n\nតំណភ្ជាប់សម្រាប់ការភ្ជាប់គណនីថ្មីនេះមិនអាចប្រើបានទេ។`,
+                source,
+                `សូមប្រើ /changeaccount ជំនួសវិញ ដើម្បីប្តូរគណនី Jira របស់អ្នក។`
+            );
+            return res.status(400).send(`
+                <html>
+                <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                <body style="background-color: #f0f2f5;">
+                <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <h1 style="color: orange; font-size: 48px; margin: 0;">⚠️</h1>
+                    <h2 style="color: #333; margin-top: 20px;">មិនត្រឹមត្រូវ!</h2>
+                    <p style="color: #666; font-size: 16px;">តំណភ្ជាប់នេះគឺសម្រាប់អ្នកដែលមិនទាន់ភ្ជាប់គណនី ប៉ុន្តែអ្នកបានភ្ជាប់គណនីរួចហើយ។</p>
+                    <p style="color: #666; font-size: 16px;">សូមប្រើ /changeaccount នៅក្នុង Telegram ជាថ្មី ដើម្បីប្តូរគណនី។</p>
+                </div>
+                </body>
+                </html>
+            `);
+        }
+
         const redirectUri = 'https://jirabot.kaizenops.site/auth/callback';
 
         try {

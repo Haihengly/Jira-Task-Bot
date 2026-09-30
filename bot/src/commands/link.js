@@ -37,8 +37,8 @@ async function handleLink(ctx) {
     }
 
     const oauthUrl = getOAuthUrl(telegramUserId, chatId, 'link');
-    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីភ្ជាប់គណនី Jira របស់អ្នក។\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
-    
+    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីភ្ជាប់គណនី Jira របស់អ្នក។\n\n⏳ តំណភ្ជាប់នេះមានសុពលភាព 10 នាទី\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
+
     return ctx.reply(
         messageText,
         Markup.inlineKeyboard([
@@ -75,7 +75,7 @@ async function handleChangeAccount(ctx) {
     }
 
     const oauthUrl = getOAuthUrl(telegramUserId, chatId, 'changeaccount');
-    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីប្តូរគណនី Jira របស់អ្នក។\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
+    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីប្តូរគណនី Jira របស់អ្នក។\n\n⏳ តំណភ្ជាប់នេះមានសុពលភាព 10 នាទី\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
 
     return ctx.reply(
         messageText,
