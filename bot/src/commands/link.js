@@ -6,8 +6,8 @@ const { createOAuthState } = require('../auth/state');
 // In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
 const pendingRegistrations = new Map();
 
-function getOAuthUrl(telegramUserId, chatId) {
-    const state = createOAuthState(telegramUserId, chatId);
+function getOAuthUrl(telegramUserId, chatId, source = 'link') {
+    const state = createOAuthState(telegramUserId, chatId, source);
     return `https://jirabot.kaizenops.site/auth/jira?state=${state}`;
 }
 
@@ -36,7 +36,7 @@ async function handleLink(ctx) {
         console.error('Error checking existing mapping in /link:', err);
     }
 
-    const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+    const oauthUrl = getOAuthUrl(telegramUserId, chatId, 'link');
     const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីភ្ជាប់គណនី Jira របស់អ្នក។\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
     
     return ctx.reply(
@@ -74,7 +74,7 @@ async function handleChangeAccount(ctx) {
         return ctx.reply('អ្នកមិនទាន់បានភ្ជាប់គណនីទេ។ សូមប្រើ /link ជាមុនសិន។');
     }
 
-    const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+    const oauthUrl = getOAuthUrl(telegramUserId, chatId, 'changeaccount');
     const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីប្តូរគណនី Jira របស់អ្នក។\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
 
     return ctx.reply(

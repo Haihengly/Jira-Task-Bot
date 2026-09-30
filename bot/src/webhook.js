@@ -7,10 +7,13 @@ const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
 
-async function sendOAuthFailureMessage(bot, chatId, reasonText, customActionText) {
+async function sendOAuthFailureMessage(bot, chatId, reasonText, source = 'link', customAction = null) {
     if (!chatId) return;
-    const action = customActionText || 'សូមប្រើ /link ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី។';
-    const message = `❌ ការភ្ជាប់គណនីបានបរាជ័យ!\n\n${reasonText}\n\n${action}`;
+    const isChange = source === 'changeaccount';
+    const title = isChange ? '❌ ការប្ដូរគណនីបានបរាជ័យ!' : '❌ ការភ្ជាប់គណនីបានបរាជ័យ!';
+    const command = isChange ? '/changeaccount' : '/link';
+    const action = customAction || `សូមប្រើ ${command} ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី។`;
+    const message = `${title}\n\n${reasonText}\n\n${action}`;
     try {
         await bot.telegram.sendMessage(chatId, message);
     } catch (err) {
@@ -115,12 +118,15 @@ function startWebhookServer(bot) {
         const stateEntry = state ? consumeOAuthState(state) : null;
         const chatId = stateEntry?.chatId;
         const telegramUserId = stateEntry?.telegramUserId;
+        const source = stateEntry?.source || 'link';
+        const command = source === 'changeaccount' ? '/changeaccount' : '/link';
 
         if (error) {
             await sendOAuthFailureMessage(
                 bot,
                 chatId,
-                `អ្នកបានបដិសេធការអនុញ្ញាត (Denied consent) ឬការចូលប្រើប្រាស់ត្រូវបានលុបចោល។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+                `អ្នកបានបដិសេធការអនុញ្ញាត (Denied consent) ឬការចូលប្រើប្រាស់ត្រូវបានលុបចោល។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                source
             );
             return res.status(400).send(`
                 <html>
@@ -128,7 +134,7 @@ function startWebhookServer(bot) {
                 <body style="background-color: #f0f2f5;">
                 <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
                     <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
-                    <h2 style="color: #333; margin-top: 20px;">ការភ្ជាប់គណនីបានបរាជ័យ!</h2>
+                    <h2 style="color: #333; margin-top: 20px;">${source === 'changeaccount' ? 'ការប្ដូរគណនីបានបរាជ័យ!' : 'ការភ្ជាប់គណនីបានបរាជ័យ!'}</h2>
                     <p style="color: #666; font-size: 16px;">បញ្ហា៖ ${escapeMarkdown(error_description || error)}</p>
                     <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយព្យាយាមម្តងទៀតនៅក្នុង Telegram។</p>
                 </div>
@@ -140,7 +146,8 @@ function startWebhookServer(bot) {
             await sendOAuthFailureMessage(
                 bot,
                 chatId,
-                `ព័ត៌មានផ្ទៀងផ្ទាត់មិនគ្រប់គ្រាន់ (Missing code or state)។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+                `ព័ត៌មានផ្ទៀងផ្ទាត់មិនគ្រប់គ្រាន់ (Missing code or state)។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                source
             );
             return res.status(400).send(`
                 <html>
@@ -217,8 +224,9 @@ function startWebhookServer(bot) {
                 await sendOAuthFailureMessage(
                     bot,
                     chatId,
-                    `អ្នកបានជ្រើសរើស Site Jira ដែលមិនត្រឹមត្រូវ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
-                    `សូមប្រើ /link ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី ហើយជ្រើសរើស Site ត្រឹមត្រូវ។`
+                    `អ្នកបានជ្រើសរើស Site Jira ដែលមិនត្រឹមត្រូវ។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                    source,
+                    `សូមប្រើ ${command} ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី ហើយជ្រើសរើស Site ត្រឹមត្រូវ។`
                 );
                 return res.status(403).send(`
                     <html>
@@ -254,7 +262,8 @@ function startWebhookServer(bot) {
                 await sendOAuthFailureMessage(
                     bot,
                     chatId,
-                    `គណនី Atlassian របស់អ្នកមិនមានសិទ្ធិចូលប្រើប្រាស់ Jira នេះទេ ឬមិនត្រូវបានរកឃើញ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+                    `គណនី Atlassian របស់អ្នកមិនមានសិទ្ធិចូលប្រើប្រាស់ Jira នេះទេ ឬមិនត្រូវបានរកឃើញ។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                    source
                 );
                 return res.status(404).send(`
                     <html>
@@ -280,7 +289,9 @@ function startWebhookServer(bot) {
                 await sendOAuthFailureMessage(
                     bot,
                     chatId,
-                    `មិនអាចទាញយកអ៊ីមែលពីគណនី Jira របស់អ្នកបានទេ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+                    `មិនអាចទាញយកអ៊ីមែលពីគណនី Jira របស់អ្នកបានទេ។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                    source,
+                    `សូមពិនិត្យមើលការកំណត់ភាពឯកជននៃអ៊ីមែលនៅក្នុងគណនី Atlassian របស់អ្នក រួចប្រើ ${command} ម្តងទៀត។`
                 );
                 return res.status(400).send(`
                     <html>
@@ -304,8 +315,9 @@ function startWebhookServer(bot) {
                 await sendOAuthFailureMessage(
                     bot,
                     chatId,
-                    `គណនី Jira នេះត្រូវបានភ្ជាប់ជាមួយគណនី Telegram ផ្សេងរួចហើយ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
-                    `សូមផ្តាច់គណនីនោះសិន ឬប្រើប្រាស់គណនី Jira ផ្សេង រួចប្រើ /link ម្តងទៀត។`
+                    `គណនី Jira នេះត្រូវបានភ្ជាប់ជាមួយគណនី Telegram ផ្សេងរួចហើយ។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                    source,
+                    `សូមផ្តាច់គណនីនោះសិន ឬប្រើប្រាស់គណនី Jira ផ្សេង រួចប្រើ ${command} ម្តងទៀត។`
                 );
                 return res.send(`
                     <html>
@@ -421,7 +433,8 @@ function startWebhookServer(bot) {
             await sendOAuthFailureMessage(
                 bot,
                 chatId,
-                `មានបញ្ហាក្នុងការភ្ជាប់គណនីរបស់អ្នក។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+                `មានបញ្ហាក្នុងការ${source === 'changeaccount' ? 'ប្ដូរ' : 'ភ្ជាប់'}គណនីរបស់អ្នក។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                source
             );
             res.status(500).send(`
                 <html>
@@ -430,7 +443,7 @@ function startWebhookServer(bot) {
                 <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
                     <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
                     <h2 style="color: #333; margin-top: 20px;">មានបញ្ហា!</h2>
-                    <p style="color: #666; font-size: 16px;">បរាជ័យក្នុងការភ្ជាប់គណនីរបស់អ្នក។ សូមព្យាយាមម្តងទៀត។</p>
+                    <p style="color: #666; font-size: 16px;">បរាជ័យក្នុងការ${source === 'changeaccount' ? 'ប្ដូរ' : 'ភ្ជាប់'}គណនីរបស់អ្នក។ សូមព្យាយាមម្តងទៀត។</p>
                 </div>
                 </body>
                 </html>

@@ -9,13 +9,15 @@ const STATE_TTL_MS = 10 * 60 * 1000; // 10 minutes
  * Generate a random 32-byte hex state token and store it in memory.
  * @param {string} telegramUserId
  * @param {string} chatId
+ * @param {string} source 'link' or 'changeaccount'
  * @returns {string} state token
  */
-function createOAuthState(telegramUserId, chatId) {
+function createOAuthState(telegramUserId, chatId, source = 'link') {
     const state = crypto.randomBytes(32).toString('hex');
     oauthStates.set(state, {
         telegramUserId: String(telegramUserId),
         chatId: String(chatId),
+        source: String(source),
         expiresAt: Date.now() + STATE_TTL_MS
     });
     return state;
