@@ -7,6 +7,17 @@ const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
 
+async function sendOAuthFailureMessage(bot, chatId, reasonText, customActionText) {
+    if (!chatId) return;
+    const action = customActionText || 'សូមប្រើ /link ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី។';
+    const message = `❌ ការភ្ជាប់គណនីបានបរាជ័យ!\n\n${reasonText}\n\n${action}`;
+    try {
+        await bot.telegram.sendMessage(chatId, message);
+    } catch (err) {
+        console.error('Failed to send OAuth failure message to Telegram:', err.message);
+    }
+}
+
 function normalizeUrl(url) {
     if (!url || typeof url !== 'string') return '';
     return url.trim().replace(/^https?:\/\//i, '').replace(/\/+$/, '').toLowerCase();
@@ -99,17 +110,25 @@ function startWebhookServer(bot) {
 
     app.get('/auth/callback', async (req, res) => {
         const { code, state, error, error_description } = req.query;
+
+        // Retrieve and consume state token immediately so we have chatId even on early failures
+        const stateEntry = state ? consumeOAuthState(state) : null;
+        const chatId = stateEntry?.chatId;
+        const telegramUserId = stateEntry?.telegramUserId;
+
         if (error) {
-            if (state) {
-                consumeOAuthState(state);
-            }
+            await sendOAuthFailureMessage(
+                bot,
+                chatId,
+                `អ្នកបានបដិសេធការអនុញ្ញាត (Denied consent) ឬការចូលប្រើប្រាស់ត្រូវបានលុបចោល។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+            );
             return res.status(400).send(`
                 <html>
                 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
                 <body style="background-color: #f0f2f5;">
                 <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
                     <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
-                    <h2 style="color: #333; margin-top: 20px;">ការចុះឈ្មោះបានបរាជ័យ!</h2>
+                    <h2 style="color: #333; margin-top: 20px;">ការភ្ជាប់គណនីបានបរាជ័យ!</h2>
                     <p style="color: #666; font-size: 16px;">បញ្ហា៖ ${escapeMarkdown(error_description || error)}</p>
                     <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយព្យាយាមម្តងទៀតនៅក្នុង Telegram។</p>
                 </div>
@@ -118,6 +137,11 @@ function startWebhookServer(bot) {
             `);
         }
         if (!code || !state) {
+            await sendOAuthFailureMessage(
+                bot,
+                chatId,
+                `ព័ត៌មានផ្ទៀងផ្ទាត់មិនគ្រប់គ្រាន់ (Missing code or state)។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+            );
             return res.status(400).send(`
                 <html>
                 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -132,7 +156,6 @@ function startWebhookServer(bot) {
             `);
         }
 
-        const stateEntry = consumeOAuthState(state);
         if (!stateEntry) {
             return res.status(400).send(`
                 <html>
@@ -148,7 +171,6 @@ function startWebhookServer(bot) {
             `);
         }
 
-        const { telegramUserId, chatId } = stateEntry;
         const redirectUri = 'https://jirabot.kaizenops.site/auth/callback';
 
         try {
@@ -192,6 +214,12 @@ function startWebhookServer(bot) {
             }
 
             if (!hasAccessToOurSite) {
+                await sendOAuthFailureMessage(
+                    bot,
+                    chatId,
+                    `អ្នកបានជ្រើសរើស Site Jira ដែលមិនត្រឹមត្រូវ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                    `សូមប្រើ /link ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី ហើយជ្រើសរើស Site ត្រឹមត្រូវ។`
+                );
                 return res.status(403).send(`
                     <html>
                     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -223,6 +251,11 @@ function startWebhookServer(bot) {
             }
 
             if (!jiraUser || !jiraUser.accountId) {
+                await sendOAuthFailureMessage(
+                    bot,
+                    chatId,
+                    `គណនី Atlassian របស់អ្នកមិនមានសិទ្ធិចូលប្រើប្រាស់ Jira នេះទេ ឬមិនត្រូវបានរកឃើញ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+                );
                 return res.status(404).send(`
                     <html>
                     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -244,6 +277,11 @@ function startWebhookServer(bot) {
 
             const finalEmail = meEmail || jiraUser.emailAddress;
             if (!finalEmail) {
+                await sendOAuthFailureMessage(
+                    bot,
+                    chatId,
+                    `មិនអាចទាញយកអ៊ីមែលពីគណនី Jira របស់អ្នកបានទេ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+                );
                 return res.status(400).send(`
                     <html>
                     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -263,6 +301,12 @@ function startWebhookServer(bot) {
             // Check if Jira account mapped to another Telegram user
             const existingMapping = await getMappingByJiraAccountId(verifiedAccountId);
             if (existingMapping && existingMapping.telegram_user_id !== telegramUserId) {
+                await sendOAuthFailureMessage(
+                    bot,
+                    chatId,
+                    `គណនី Jira នេះត្រូវបានភ្ជាប់ជាមួយគណនី Telegram ផ្សេងរួចហើយ។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
+                    `សូមផ្តាច់គណនីនោះសិន ឬប្រើប្រាស់គណនី Jira ផ្សេង រួចប្រើ /link ម្តងទៀត។`
+                );
                 return res.send(`
                     <html>
                     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
@@ -365,7 +409,7 @@ function startWebhookServer(bot) {
                 <body style="background-color: #f0f2f5;">
                 <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
                     <h1 style="color: #4CAF50; font-size: 48px; margin: 0;">✅</h1>
-                    <h2 style="color: #333; margin-top: 20px;">ការចុះឈ្មោះជោគជ័យ!</h2>
+                    <h2 style="color: #333; margin-top: 20px;">ការភ្ជាប់គណនីជោគជ័យ!</h2>
                     <p style="color: #666; font-size: 16px;">គណនីរបស់អ្នក (${finalEmail}) ត្រូវបានភ្ជាប់។</p>
                     <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយត្រឡប់ទៅ Telegram វិញបាន។</p>
                 </div>
@@ -374,6 +418,11 @@ function startWebhookServer(bot) {
             `);
         } catch (err) {
             console.error('Error in OAuth callback:', err.response?.data || err.message);
+            await sendOAuthFailureMessage(
+                bot,
+                chatId,
+                `មានបញ្ហាក្នុងការភ្ជាប់គណនីរបស់អ្នក។ តំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`
+            );
             res.status(500).send(`
                 <html>
                 <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
