@@ -12,12 +12,12 @@ function getOAuthUrl(telegramUserId, chatId) {
 }
 
 /**
- * Handle /register command (OAuth-only).
+ * Handle /link command (OAuth-only).
  * Any arguments passed are rejected.
  */
-async function handleRegister(ctx) {
+async function handleLink(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /register ដោយគ្មានពាក្យផ្សេងទៀត។');
+        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /link ដោយគ្មានពាក្យផ្សេងទៀត។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
@@ -30,15 +30,17 @@ async function handleRegister(ctx) {
     try {
         const existingMapping = await getMappingByTelegramId(telegramUserId);
         if (existingMapping) {
-            return ctx.reply('អ្នកបានចុះឈ្មោះរួចហើយ។ សូមប្រើ /changeaccount ដើម្បីប្តូរគណនី Jira របស់អ្នក។');
+            return ctx.reply('អ្នកបានភ្ជាប់គណនីរួចហើយ។ សូមប្រើ /changeaccount ដើម្បីប្តូរគណនី Jira របស់អ្នក។');
         }
     } catch (err) {
-        console.error('Error checking existing mapping in /register:', err);
+        console.error('Error checking existing mapping in /link:', err);
     }
 
     const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីភ្ជាប់គណនី Jira របស់អ្នក។\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
+    
     return ctx.reply(
-        'សូមចុចប៊ូតុងខាងក្រោមដើម្បីភ្ជាប់គណនី Jira របស់អ្នកដោយសុវត្ថិភាពតាមរយៈ Atlassian OAuth 2.0៖',
+        messageText,
         Markup.inlineKeyboard([
             Markup.button.url('🔗 ភ្ជាប់គណនី Jira', oauthUrl)
         ])
@@ -69,12 +71,14 @@ async function handleChangeAccount(ctx) {
     }
 
     if (!existingMapping) {
-        return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះទេ។ សូមប្រើ /register ជាមុនសិន។');
+        return ctx.reply('អ្នកមិនទាន់បានភ្ជាប់គណនីទេ។ សូមប្រើ /link ជាមុនសិន។');
     }
 
     const oauthUrl = getOAuthUrl(telegramUserId, chatId);
+    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីប្តូរគណនី Jira របស់អ្នក។\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
+
     return ctx.reply(
-        'សូមចុចប៊ូតុងខាងក្រោមដើម្បីប្តូរ និងភ្ជាប់គណនី Jira របស់អ្នកដោយសុវត្ថិភាពតាមរយៈ Atlassian OAuth 2.0៖',
+        messageText,
         Markup.inlineKeyboard([
             Markup.button.url('🔗 ភ្ជាប់គណនី Jira', oauthUrl)
         ])
@@ -90,7 +94,7 @@ async function handleConfirmRegister(ctx) {
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     if (!telegramUserId || !pendingRegistrations.has(telegramUserId)) {
-        return ctx.editMessageText('មិនមានការចុះឈ្មោះដែលកំពុងរង់ចាំនោះទេ។ សូមប្រើ /register ម្តងទៀត។').catch(() => {});
+        return ctx.editMessageText('មិនមានការភ្ជាប់គណនីដែលកំពុងរង់ចាំនោះទេ។ សូមប្រើ /link ម្តងទៀត។').catch(() => {});
     }
 
     const pending = pendingRegistrations.get(telegramUserId);
@@ -108,7 +112,7 @@ async function handleConfirmRegister(ctx) {
             console.error('Failed to update user command menu:', menuErr.message);
         }
 
-        let replyMessage = `ចុះឈ្មោះជោគជ័យ! 🎉\n`;
+        let replyMessage = `ភ្ជាប់គណនីជោគជ័យ! 🎉\n`;
 
         if (pending.existingMapping && pending.existingMapping.jira_email && pending.existingMapping.jira_email.toLowerCase() !== pending.email.toLowerCase()) {
             replyMessage += `គណនី Jira របស់អ្នកត្រូវបានផ្លាស់ប្តូរពី ${pending.existingMapping.jira_email} ទៅ ${pending.email}។\n`;
@@ -139,11 +143,11 @@ async function handleCancelRegister(ctx) {
         pendingRegistrations.delete(telegramUserId);
     }
 
-    return ctx.editMessageText('ការចុះឈ្មោះត្រូវបានលុបចោល។ សូមប្រើ /register ម្តងទៀត។').catch(() => {});
+    return ctx.editMessageText('ការភ្ជាប់គណនីត្រូវបានលុបចោល។ សូមប្រើ /link ម្តងទៀត។').catch(() => {});
 }
 
 module.exports = {
-    handleRegister,
+    handleLink,
     handleChangeAccount,
     handleConfirmRegister,
     handleCancelRegister,

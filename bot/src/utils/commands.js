@@ -1,7 +1,7 @@
 const { Markup } = require('telegraf');
 
 const UNREGISTERED_COMMANDS = [
-    { command: 'register', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
+    { command: 'link', description: 'ភ្ជាប់គណនី Jira របស់អ្នក' },
     { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' }
 ];
 
@@ -14,7 +14,7 @@ const REGISTERED_COMMANDS = [
 ];
 
 const KEYBOARD_BUTTONS = {
-    REGISTER: '🔗 ភ្ជាប់គណនី Jira',
+    LINK: '🔗 ភ្ជាប់គណនី Jira',
     MY_TASKS: '📋 កិច្ចការរបស់ខ្ញុំ',
     MY_ACCOUNT: '👤 គណនីរបស់ខ្ញុំ',
     CHANGE_ACCOUNT: '🔄 ប្តូរគណនី',
@@ -43,7 +43,7 @@ function getTasksKeyboard() {
 
 function getUnregisteredKeyboard() {
     return Markup.keyboard([
-        [KEYBOARD_BUTTONS.REGISTER, KEYBOARD_BUTTONS.HELP]
+        [KEYBOARD_BUTTONS.LINK, KEYBOARD_BUTTONS.HELP]
     ]).resize();
 }
 

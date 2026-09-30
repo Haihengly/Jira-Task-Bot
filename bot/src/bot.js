@@ -1,11 +1,11 @@
 const https = require('https');
 const { Telegraf, Markup } = require('telegraf');
 const {
-    handleRegister,
+    handleLink,
     handleChangeAccount,
     handleConfirmRegister,
     handleCancelRegister,
-} = require('./commands/register');
+} = require('./commands/link');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const { handleTasks, handleMyTasks, handleBackToMain } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
@@ -40,11 +40,11 @@ function createBot() {
 
             // Check if it's one of the exempt commands / buttons
             if (
-                text.startsWith('/register') ||
+                text.startsWith('/link') ||
                 text.startsWith('/start') ||
                 text.startsWith('/help') ||
                 text.startsWith('/deleteaccount') ||
-                text === KEYBOARD_BUTTONS.REGISTER ||
+                text === KEYBOARD_BUTTONS.LINK ||
                 text === KEYBOARD_BUTTONS.HELP ||
                 text === KEYBOARD_BUTTONS.DELETE_ACCOUNT
             ) {
@@ -67,7 +67,7 @@ function createBot() {
                 if (telegramUserId) {
                     const userMapping = await getMappingByTelegramId(telegramUserId);
                     if (!userMapping) {
-                        return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះទេ។ សូមប្រើ /register ជាមុនសិន។');
+                        return ctx.reply('អ្នកមិនទាន់បានចុះឈ្មោះទេ។ សូមប្រើ /link ជាមុនសិន។');
                     }
                 }
             }
@@ -126,14 +126,14 @@ function createBot() {
     bot.command('help', handleHelp);
 
     // Register primary commands
-    bot.command('register', handleRegister);
+    bot.command('link', handleLink);
     bot.command('changeaccount', handleChangeAccount);
     bot.command('deleteaccount', handleDeleteAccount);
     bot.command('myaccount', handleMyAccount);
     bot.command('mytasks', handleMyTasks);
 
     // Register reply keyboard button listeners
-    bot.hears(KEYBOARD_BUTTONS.REGISTER, handleRegister);
+    bot.hears(KEYBOARD_BUTTONS.LINK, handleLink);
     bot.hears(KEYBOARD_BUTTONS.MY_TASKS, handleMyTasks);
     bot.hears(KEYBOARD_BUTTONS.MY_ACCOUNT, handleMyAccount);
     bot.hears(KEYBOARD_BUTTONS.CHANGE_ACCOUNT, handleChangeAccount);
@@ -176,7 +176,7 @@ function createBot() {
             );
         } else {
             return ctx.reply(
-                `ការបញ្ជូលមិនត្រឹមត្រូវទម្រង់ សូមចុច /help ដើម្បីមើលអំពីរបៀបនៃការចុះឈ្មោះ\nសូមអរគុណ!`
+                `ការបញ្ជូលមិនត្រឹមត្រូវទម្រង់ សូមចុច /help ដើម្បីមើលអំពីរបៀបនៃការភ្ជាប់គណនី\nសូមអរគុណ!`
             );
         }
     });

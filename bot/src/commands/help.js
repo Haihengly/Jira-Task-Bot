@@ -4,7 +4,7 @@ const { REGISTERED_COMMANDS, generateHelpCommandList } = require('../utils/comma
 function getStartMessage() {
     return (
         `សូមស្វាគមន៍មកកាន់ Jira Task Tracker Bot! 👋\n\n` +
-        `សូមធ្វើការចុចប៊ូតុង "🔗 ភ្ជាប់គណនី Jira" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗\n\n` +
+        `សូមធ្វើការចុចប៊ូតុង "🔗 ភ្ជាប់គណនី Jira" ឬក៏បញ្ចូលពាក្យបញ្ជា /link ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗\n\n` +
         `សូមអរគុណ 🙏`
     );
 }
@@ -27,8 +27,8 @@ function getRegisteredStartMessage(mapping) {
 
 function getUnregisteredHelpMessage() {
     return (
-        `📖 របៀបចុះឈ្មោះ ៖\n\n` +
-        `សូមធ្វើការចុចប៊ូតុង "🔗 ភ្ជាប់គណនី Jira" ឬក៏បញ្ចូលពាក្យបញ្ជា /register ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗`
+        `📖 របៀបភ្ជាប់គណនី ៖\n\n` +
+        `សូមធ្វើការចុចប៊ូតុង "🔗 ភ្ជាប់គណនី Jira" ឬក៏បញ្ចូលពាក្យបញ្ជា /link ដើម្បីភ្ជាប់គណនី Telegram របស់អ្នកទៅកាន់ Jira 🔗`
     );
 }
 
