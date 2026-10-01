@@ -64,10 +64,10 @@ class JiraClient {
      * Search issues for a specific accountId and status
      * @param {string} accountId
      * @param {string} status 'To Do', 'In Progress', 'Done'
-     * @param {string} [fields='summary,status,assignee,priority,duedate']
+     * @param {string} [fields='summary,status,assignee,priority,duedate,project,subtasks']
      * @returns {Promise<Array>} List of issues
      */
-    async getIssuesByAssigneeAndStatus(accountId, status, fields = 'summary,status,assignee,priority,duedate,project') {
+    async getIssuesByAssigneeAndStatus(accountId, status, fields = 'summary,status,assignee,priority,duedate,project,subtasks') {
         try {
             const jql = `assignee = "${accountId}" AND status = "${status}"`;
             const response = await this.client.get(`/rest/api/3/search/jql`, {

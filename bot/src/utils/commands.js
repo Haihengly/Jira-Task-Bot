@@ -19,7 +19,10 @@ const KEYBOARD_BUTTONS = {
     MY_ACCOUNT: '👤 គណនីរបស់ខ្ញុំ',
     CHANGE_ACCOUNT: '🔄 ប្តូរគណនី',
     HELP: '❓ ជំនួយ',
+    EXPORT_PDF: '📄 នាំចេញជា PDF',
     DELETE_ACCOUNT: '🔴 ផ្ដាច់គណនី',
+    PDF_TODAY: '📊 ថ្ងៃនេះ',
+    PDF_DATE_RANGE: '📅 ចន្លោះកាលបរិច្ឆេទ',
     TASK_TODO: '📋 ត្រូវធ្វើ',
     TASK_INPROGRESS: '🔄 កំពុងធ្វើ',
     TASK_DONE: '✅ បានធ្វើរួច',
@@ -30,6 +33,7 @@ function getRegisteredKeyboard() {
     return Markup.keyboard([
         [KEYBOARD_BUTTONS.MY_TASKS, KEYBOARD_BUTTONS.MY_ACCOUNT],
         [KEYBOARD_BUTTONS.CHANGE_ACCOUNT, KEYBOARD_BUTTONS.HELP],
+        [KEYBOARD_BUTTONS.EXPORT_PDF],
         [KEYBOARD_BUTTONS.DELETE_ACCOUNT]
     ]).resize();
 }
@@ -37,6 +41,14 @@ function getRegisteredKeyboard() {
 function getTasksKeyboard() {
     return Markup.keyboard([
         [KEYBOARD_BUTTONS.TASK_TODO, KEYBOARD_BUTTONS.TASK_INPROGRESS, KEYBOARD_BUTTONS.TASK_DONE],
+        [KEYBOARD_BUTTONS.BACK]
+    ]).resize();
+}
+
+function getPdfHubKeyboard() {
+    return Markup.keyboard([
+        [KEYBOARD_BUTTONS.PDF_TODAY],
+        [KEYBOARD_BUTTONS.PDF_DATE_RANGE],
         [KEYBOARD_BUTTONS.BACK]
     ]).resize();
 }
@@ -58,6 +70,7 @@ module.exports = {
     KEYBOARD_BUTTONS,
     getRegisteredKeyboard,
     getTasksKeyboard,
+    getPdfHubKeyboard,
     getUnregisteredKeyboard,
     generateHelpCommandList
 };

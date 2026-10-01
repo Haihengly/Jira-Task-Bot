@@ -1,14 +1,29 @@
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('../utils');
-const { getRegisteredKeyboard, getTasksKeyboard } = require('../utils/commands');
+const {
+    getRegisteredKeyboard,
+    getTasksKeyboard,
+    getPdfHubKeyboard
+} = require('../utils/commands');
+const {
+    USER_MODES,
+    setUserMode,
+    getUserMode,
+    clearUserMode
+} = require('../utils/userState');
+const { generateTaskReport } = require('../pdf/generateTaskReport');
 
+/**
+ * Handle /mytasks command or "📋 កិច្ចការរបស់ខ្ញុំ" button
+ */
 async function handleMyTasks(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
         return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /mytasks ដោយគ្មានពាក្យផ្សេងទៀត។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    setUserMode(telegramUserId, USER_MODES.TEXT_TASKS);
 
     return ctx.reply(
         'សូមជ្រើសរើសប្រភេទកិច្ចការដែលអ្នកចង់មើល៖',
@@ -16,16 +31,139 @@ async function handleMyTasks(ctx) {
     );
 }
 
-async function handleBackToMain(ctx) {
+/**
+ * Handle "📄 នាំចេញជា PDF" button from root registered keyboard
+ */
+async function handlePdfHub(ctx) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    setUserMode(telegramUserId, USER_MODES.PDF_HUB);
 
+    return ctx.reply(
+        'សូមជ្រើសរើសជម្រើសនៃការនាំចេញជា PDF៖',
+        getPdfHubKeyboard()
+    );
+}
+
+/**
+ * Handle "📊 ថ្ងៃនេះ" button from PDF Hub
+ */
+async function handlePdfToday(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    setUserMode(telegramUserId, USER_MODES.PDF_STATUS);
+
+    return ctx.reply(
+        'សូមជ្រើសរើសប្រភេទកិច្ចការសម្រាប់ទាញយកជា PDF៖',
+        getTasksKeyboard()
+    );
+}
+
+/**
+ * Handle "📅 ចន្លោះកាលបរិច្ឆេទ" button (placeholder)
+ */
+async function handlePdfDateRange(ctx) {
+    return ctx.reply('🚧 មុខងារនេះកំពុងសាងសង់ សូមរង់ចាំពេលក្រោយ។');
+}
+
+/**
+ * Handle back button navigation based on active user mode
+ */
+async function handleBackNavigation(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    const mode = getUserMode(telegramUserId);
+
+    if (mode === USER_MODES.PDF_STATUS) {
+        // Go back from PDF status picker to PDF Hub
+        setUserMode(telegramUserId, USER_MODES.PDF_HUB);
+        return ctx.reply('បានត្រឡប់ទៅកាន់ PDF Hub វិញ', getPdfHubKeyboard());
+    }
+
+    // Go back to root registered keyboard
+    clearUserMode(telegramUserId);
+    return ctx.reply('បានត្រឡប់ទៅកាន់ម៉ឺនុយដើមវិញ', getRegisteredKeyboard());
+}
+
+/**
+ * Export PDF directly for status button press in PDF mode
+ */
+async function exportTaskPdfDirectly(ctx, status) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    if (!telegramUserId) {
+        return ctx.reply('Unable to read your Telegram user ID.');
+    }
+
+    let statusMsg = null;
     try {
-        await ctx.reply('បានត្រឡប់ទៅកាន់ម៉ឺនុយដើមវិញ', getRegisteredKeyboard());
-    } catch (err) {
-        console.error('Error switching to main keyboard:', err);
+        await ctx.sendChatAction('upload_document');
+        statusMsg = await ctx.reply('កំពុងបង្កើត PDF... សូមរង់ចាំបន្តិច។');
+
+        const mapping = await getMappingByTelegramId(telegramUserId);
+        if (!mapping || !mapping.jira_account_id) {
+            if (statusMsg) {
+                await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+            }
+            return ctx.reply('សូមភ្ជាប់គណនី Jira របស់អ្នកជាមុនសិន ដោយប្រើ /link');
+        }
+
+        const fields = 'summary,status,assignee,priority,duedate,project,subtasks';
+        const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
+
+        if (!issues || issues.length === 0) {
+            if (statusMsg) {
+                await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+            }
+            let emptyMessage = '';
+            if (status === 'To Do') emptyMessage = 'មិនមានកិច្ចការត្រូវធ្វើសម្រាប់ទាញយកជា PDF នោះទេ។';
+            else if (status === 'In Progress') emptyMessage = 'មិនមានកិច្ចការកំពុងធ្វើសម្រាប់ទាញយកជា PDF នោះទេ។';
+            else if (status === 'Done') emptyMessage = 'មិនមានកិច្ចការដែលបានធ្វើរួចសម្រាប់ទាញយកជា PDF នោះទេ។ 👍';
+            return ctx.reply(emptyMessage);
+        }
+
+        const rawPdf = await generateTaskReport(issues, status, mapping);
+        const pdfBuffer = Buffer.from(rawPdf);
+
+        const statusClean = status.replace(/\s+/g, '_');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
+
+        let headerStatus = status;
+        if (status === 'To Do') headerStatus = 'ត្រូវធ្វើ (To Do)';
+        else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ (In Progress)';
+        else if (status === 'Done') headerStatus = 'បានធ្វើរួច (Done)';
+
+        await ctx.replyWithDocument(
+            { source: pdfBuffer, filename },
+            { caption: `📄 របាយការណ៍កិច្ចការ: ${headerStatus}` }
+        );
+
+        if (statusMsg) {
+            await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+        }
+    } catch (error) {
+        console.error(`Error exporting PDF for status "${status}":`, error);
+        if (statusMsg) {
+            await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+        }
+        return ctx.reply('មានបញ្ហាក្នុងការបង្កើត PDF។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។');
     }
 }
 
+/**
+ * Route status button press to either plain-text task view or direct PDF export
+ */
+async function handleStatusSelection(ctx, status) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    const mode = getUserMode(telegramUserId);
+
+    if (mode === USER_MODES.PDF_STATUS) {
+        return exportTaskPdfDirectly(ctx, status);
+    }
+
+    return handleTasks(ctx, status);
+}
+
+/**
+ * Handle plain-text tasks display
+ */
 async function handleTasks(ctx, status) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
 
@@ -44,7 +182,7 @@ async function handleTasks(ctx, status) {
         }
 
         const isDone = status === 'Done';
-        const fields = isDone ? 'summary,project' : 'summary,status,assignee,priority,duedate,project';
+        const fields = isDone ? 'summary,project,subtasks' : 'summary,status,assignee,priority,duedate,project,subtasks';
 
         const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
 
@@ -57,7 +195,7 @@ async function handleTasks(ctx, status) {
             return ctx.reply(emptyMessage);
         }
 
-        const baseUrl = process.env.JIRA_BASE_URL.replace(/\/+$/, '');
+        const baseUrl = process.env.JIRA_BASE_URL ? process.env.JIRA_BASE_URL.replace(/\/+$/, '') : '';
 
         // Khmer headers
         let headerStatus = status;
@@ -94,7 +232,7 @@ async function handleTasks(ctx, status) {
                 projectIssues.forEach((issue) => {
                     const issueKey = issue.key;
                     const summary = issue.fields?.summary || 'No summary';
-                    const issueUrl = `${baseUrl}/browse/${issueKey}`;
+                    const issueUrl = baseUrl ? `${baseUrl}/browse/${issueKey}` : '#';
 
                     message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n\n`;
                 });
@@ -130,7 +268,7 @@ async function handleTasks(ctx, status) {
                 projectIssues.forEach((issue) => {
                     const issueKey = issue.key;
                     const summary = issue.fields?.summary || 'No summary';
-                    const issueUrl = `${baseUrl}/browse/${issueKey}`;
+                    const issueUrl = baseUrl ? `${baseUrl}/browse/${issueKey}` : '#';
 
                     const priorityName = issue.fields?.priority?.name || 'None';
                     const dueDate = issue.fields?.duedate;
@@ -146,15 +284,76 @@ async function handleTasks(ctx, status) {
             }
         });
 
-        return ctx.replyWithMarkdown(message, { disable_web_page_preview: true });
+        return ctx.replyWithMarkdown(message, {
+            disable_web_page_preview: true
+        });
     } catch (error) {
         console.error(`Error handling task command for status "${status}":`, error);
         return ctx.reply('An error occurred while fetching your Jira tasks. Please try again later.');
     }
 }
 
+/**
+ * Handle callback query for export_pdf inline button (kept for backwards compatibility)
+ */
+async function handleExportPdf(ctx) {
+    const match = ctx.match;
+    const status = match ? match[1] : null;
+
+    if (!status) {
+        return ctx.answerCbQuery('Status not found.').catch(() => {});
+    }
+
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    if (!telegramUserId) {
+        return ctx.answerCbQuery('User ID not found.').catch(() => {});
+    }
+
+    try {
+        await ctx.answerCbQuery('កំពុងបង្កើត PDF... (Generating PDF...)');
+        await ctx.sendChatAction('upload_document');
+
+        const mapping = await getMappingByTelegramId(telegramUserId);
+        if (!mapping || !mapping.jira_account_id) {
+            return ctx.reply('សូមភ្ជាប់គណនី Jira របស់អ្នកជាមុនសិន ដោយប្រើ /link');
+        }
+
+        const fields = 'summary,status,assignee,priority,duedate,project,subtasks';
+        const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
+
+        if (!issues || issues.length === 0) {
+            return ctx.reply('មិនមានកិច្ចការសម្រាប់ទាញយកជា PDF នោះទេ។');
+        }
+
+        const rawPdf = await generateTaskReport(issues, status, mapping);
+        const pdfBuffer = Buffer.from(rawPdf);
+
+        const statusClean = status.replace(/\s+/g, '_');
+        const dateStr = new Date().toISOString().slice(0, 10);
+        const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
+
+        let headerStatus = status;
+        if (status === 'To Do') headerStatus = 'ត្រូវធ្វើ (To Do)';
+        else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ (In Progress)';
+        else if (status === 'Done') headerStatus = 'បានធ្វើរួច (Done)';
+
+        return ctx.replyWithDocument(
+            { source: pdfBuffer, filename },
+            { caption: `📄 របាយការណ៍កិច្ចការ: ${headerStatus}` }
+        );
+    } catch (error) {
+        console.error('Error exporting PDF:', error);
+        return ctx.reply('មានបញ្ហាក្នុងការបង្កើត PDF។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។');
+    }
+}
+
 module.exports = {
     handleTasks,
     handleMyTasks,
-    handleBackToMain
+    handlePdfHub,
+    handlePdfToday,
+    handlePdfDateRange,
+    handleStatusSelection,
+    handleBackNavigation,
+    handleExportPdf
 };
