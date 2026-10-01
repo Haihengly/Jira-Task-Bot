@@ -47,8 +47,7 @@ function getTasksKeyboard() {
 
 function getPdfHubKeyboard() {
     return Markup.keyboard([
-        [KEYBOARD_BUTTONS.PDF_TODAY],
-        [KEYBOARD_BUTTONS.PDF_DATE_RANGE],
+        [KEYBOARD_BUTTONS.PDF_TODAY, KEYBOARD_BUTTONS.PDF_DATE_RANGE],
         [KEYBOARD_BUTTONS.BACK]
     ]).resize();
 }
