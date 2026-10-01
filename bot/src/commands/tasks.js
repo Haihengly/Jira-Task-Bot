@@ -104,8 +104,7 @@ async function exportTaskPdfDirectly(ctx, status) {
             return ctx.reply('សូមភ្ជាប់គណនី Jira របស់អ្នកជាមុនសិន ដោយប្រើ /link');
         }
 
-        const fields = 'summary,status,assignee,priority,duedate,project,subtasks';
-        const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
+        const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status);
 
         if (!issues || issues.length === 0) {
             if (statusMsg) {
