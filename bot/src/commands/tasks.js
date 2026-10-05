@@ -1,6 +1,6 @@
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
-const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('../utils');
+const { getTodayDateString, formatPriorityAndDue, escapeMarkdown, buildTaskReportCaption } = require('../utils');
 const {
     getRegisteredKeyboard,
     getTasksKeyboard,
@@ -124,14 +124,11 @@ async function exportTaskPdfDirectly(ctx, status) {
         const dateStr = new Date().toISOString().slice(0, 10);
         const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
 
-        let headerStatus = status;
-        if (status === 'To Do') headerStatus = 'ត្រូវធ្វើ (To Do)';
-        else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ (In Progress)';
-        else if (status === 'Done') headerStatus = 'បានធ្វើរួច (Done)';
+        const caption = buildTaskReportCaption(status, 'ថ្ងៃនេះ');
 
         await ctx.replyWithDocument(
             { source: pdfBuffer, filename },
-            { caption: `📄 របាយការណ៍កិច្ចការ: ${headerStatus}` }
+            { caption }
         );
 
         if (statusMsg) {
