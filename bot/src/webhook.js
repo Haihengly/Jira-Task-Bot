@@ -6,6 +6,7 @@ const { setPendingRegistration } = require('./commands/link');
 const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
+const { generateMultiSectionReport } = require('./pdf/generateTaskReport');
 
 async function sendOAuthFailureMessage(bot, chatId, reasonText, source = 'link', customAction = null) {
     if (!chatId) return;
@@ -504,6 +505,63 @@ function startWebhookServer(bot) {
                 </body>
                 </html>
             `);
+        }
+    });
+
+    
+    app.post('/internal/generate-report', async (req, res) => {
+        try {
+            const apiKey = req.headers['x-internal-key'];
+            if (!apiKey || apiKey !== process.env.INTERNAL_API_KEY) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
+            const { jiraAccountId, sections } = req.body || {};
+            if (!jiraAccountId || !Array.isArray(sections)) {
+                return res.status(400).json({ error: 'Bad Request: missing jiraAccountId or sections' });
+            }
+
+            const mapping = await getMappingByJiraAccountId(jiraAccountId);
+            if (!mapping) {
+                return res.status(404).json({ error: 'No mapping found for Jira account ID' });
+            }
+
+            const sectionData = [];
+            for (const sec of sections) {
+                let issues = await jiraClient.getIssuesByAssigneeAndStatus(jiraAccountId, sec.status);
+                
+                if (sec.dateFilter && Array.isArray(issues)) {
+                    const field = sec.dateFilter.field;
+                    const fromStr = sec.dateFilter.from;
+                    const toStr = sec.dateFilter.to;
+                    
+                    issues = issues.filter(issue => {
+                        const val = issue.fields?.[field];
+                        if (!val) return false;
+                        const dateOnly = val.substring(0, 10);
+                        if (fromStr && dateOnly < fromStr) return false;
+                        if (toStr && dateOnly > toStr) return false;
+                        return true;
+                    });
+                }
+                
+                // Keep original status intact for rendering if not done today
+                let renderStatus = sec.status;
+                if (sec.status === 'Done' && sec.dateFilter) {
+                    renderStatus = 'Done (Today)';
+                }
+
+                sectionData.push({ status: renderStatus, issues: issues || [] });
+            }
+
+            const pdfBuffer = await generateMultiSectionReport(sectionData, mapping);
+            
+            res.setHeader('Content-Type', 'application/pdf');
+            res.send(pdfBuffer);
+            
+        } catch (error) {
+            console.error('Error generating internal report:', error);
+            res.status(500).json({ error: 'Internal Server Error' });
         }
     });
 
