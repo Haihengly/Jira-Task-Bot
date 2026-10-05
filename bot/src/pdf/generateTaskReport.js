@@ -374,7 +374,6 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
 
         .project-section {
             margin-bottom: 24px;
-            page-break-inside: avoid;
         }
 
         .project-title {
