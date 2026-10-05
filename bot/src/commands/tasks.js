@@ -32,9 +32,13 @@ async function handleMyTasks(ctx) {
 }
 
 /**
- * Handle "📄 នាំចេញជា PDF" button from root registered keyboard
+ * Handle /export command or "📄 នាំចេញជា PDF" button from root registered keyboard
  */
 async function handlePdfHub(ctx) {
+    if (ctx.payload && ctx.payload.trim().length > 0) {
+        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /export ដោយគ្មានពាក្យផ្សេងទៀត។');
+    }
+
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     setUserMode(telegramUserId, USER_MODES.PDF_HUB);
 

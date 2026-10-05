@@ -8,6 +8,7 @@ const UNREGISTERED_COMMANDS = [
 const REGISTERED_COMMANDS = [
     { command: 'myaccount', description: 'មើលព័ត៌មានគណនីរបស់អ្នក' },
     { command: 'mytasks', description: 'មើលកិច្ចការរបស់អ្នក' },
+    { command: 'export', description: 'នាំចេញកិច្ចការជា PDF' },
     { command: 'changeaccount', description: 'ប្តូរគណនី Jira' },
     { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' },
     { command: 'deleteaccount', description: 'ផ្ដាច់គណនី Jira' }

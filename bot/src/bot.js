@@ -61,10 +61,12 @@ function createBot() {
                 return next();
             }
 
-            // For registered-only commands and buttons (/myaccount, /mytasks, /changeaccount, etc.), check registration
+            // For registered-only commands and buttons (/myaccount, /mytasks, /changeaccount, /export, etc.), check registration
             if (
                 text.startsWith('/myaccount') ||
                 text.startsWith('/mytasks') ||
+                text.startsWith('/export') ||
+                text.startsWith('/pdf') ||
                 text.startsWith('/changeaccount') ||
                 text === KEYBOARD_BUTTONS.MY_ACCOUNT ||
                 text === KEYBOARD_BUTTONS.MY_TASKS ||
@@ -167,6 +169,8 @@ function createBot() {
         return handleMyAccount(ctx);
     });
     bot.command('mytasks', handleMyTasks);
+    bot.command('export', handlePdfHub);
+    bot.command('pdf', handlePdfHub);
 
     // Register reply keyboard button listeners
     bot.hears(KEYBOARD_BUTTONS.LINK, (ctx) => {
