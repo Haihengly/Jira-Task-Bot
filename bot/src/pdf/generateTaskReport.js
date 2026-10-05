@@ -512,7 +512,7 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
             <div class="lh-kingdom">
                 <div class="lh-country">ព្រះរាជាណាចក្រកម្ពុជា</div>
                 <div class="lh-motto">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
-                <img src="${dividerDataUri}" style="width: 240px; height: auto; display: block; margin: 6px auto 0;" />
+                <img src="${dividerDataUri}" style="width: 190px; height: auto; display: block; margin: 4px auto 0; opacity: 0.75;" />
             </div>
             <div class="lh-ministry-block">
                 <!-- TODO: insert official seal image here -->
