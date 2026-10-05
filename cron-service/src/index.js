@@ -21,7 +21,7 @@ const bot = new Telegraf(botToken, {
     }
 });
 
-const BOT_INTERNAL_URL = 'http://bot:3030/internal/generate-report'; // Resolves inside docker-compose network
+const BOT_INTERNAL_URL = process.env.BOT_INTERNAL_URL || 'http://bot:3030/internal/generate-report';
 const INTERNAL_API_KEY = process.env.INTERNAL_API_KEY;
 
 if (!INTERNAL_API_KEY) {
@@ -121,12 +121,12 @@ async function sendEveningReminders() {
     await sendReminders('Evening', sections, '🌇 សាយ័ណ្ហសួស្តី');
 }
 
-const CRON_SCHEDULE = process.env.CRON_SCHEDULE || '0 8 * * 1-5';
-const EVENING_CRON_SCHEDULE = process.env.EVENING_CRON_SCHEDULE || '0 17 * * 1-5';
+const MORNING_CRON_SCHEDULE = process.env.MORNING_CRON_SCHEDULE || '0 8 * * 1-5';
+const EVENING_MORNING_CRON_SCHEDULE = process.env.EVENING_MORNING_CRON_SCHEDULE || '0 17 * * 1-5';
 const TIMEZONE = process.env.CRON_TIMEZONE || 'Asia/Phnom_Penh';
 
-console.log(`[cron-service] Initializing morning cron job with schedule: "${CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
-cron.schedule(CRON_SCHEDULE, () => {
+console.log(`[cron-service] Initializing morning cron job with schedule: "${MORNING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
+cron.schedule(MORNING_CRON_SCHEDULE, () => {
     sendDailyReminders().catch(err => {
         console.error('[cron-service] Unhandled error during scheduled morning reminder execution:', err);
     });
@@ -135,8 +135,8 @@ cron.schedule(CRON_SCHEDULE, () => {
     timezone: TIMEZONE
 });
 
-console.log(`[cron-service] Initializing evening cron job with schedule: "${EVENING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
-cron.schedule(EVENING_CRON_SCHEDULE, () => {
+console.log(`[cron-service] Initializing evening cron job with schedule: "${EVENING_MORNING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
+cron.schedule(EVENING_MORNING_CRON_SCHEDULE, () => {
     sendEveningReminders().catch(err => {
         console.error('[cron-service] Unhandled error during scheduled evening reminder execution:', err);
     });

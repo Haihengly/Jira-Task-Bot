@@ -60,7 +60,7 @@ The bot uses Express to handle `POST /webhook/jira` requests from Jira for real-
 
 ### Automated Reminders
 The `cron-service` automatically sends daily reminders. These are pre-configured to run at **8:00 AM** in the **Asia/Phnom_Penh** timezone.
-- Adjust the schedule via `CRON_SCHEDULE` (cron expression) and `CRON_TIMEZONE` in your `.env`.
+- Adjust the schedule via `MORNING_CRON_SCHEDULE` (cron expression) and `CRON_TIMEZONE` in your `.env`.
 
 ---
 
