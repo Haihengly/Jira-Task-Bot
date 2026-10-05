@@ -17,7 +17,7 @@ function getOAuthUrl(telegramUserId, chatId, source = 'link') {
  */
 async function handleLink(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /link ដោយគ្មានពាក្យផ្សេងទៀត។');
+        return ctx.reply('⚠️ សូមប្រើ /link ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
@@ -53,7 +53,7 @@ async function handleLink(ctx) {
  */
 async function handleChangeAccount(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /changeaccount ដោយគ្មានពាក្យផ្សេងទៀត។');
+        return ctx.reply('⚠️ សូមប្រើ /changeaccount ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;

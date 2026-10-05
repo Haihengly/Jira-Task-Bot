@@ -19,7 +19,7 @@ const { generateTaskReport } = require('../pdf/generateTaskReport');
  */
 async function handleMyTasks(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /mytasks ដោយគ្មានពាក្យផ្សេងទៀត។');
+        return ctx.reply('⚠️ សូមប្រើ /mytasks ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
@@ -36,7 +36,7 @@ async function handleMyTasks(ctx) {
  */
 async function handlePdfHub(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /export ដោយគ្មានពាក្យផ្សេងទៀត។');
+        return ctx.reply('⚠️ សូមប្រើ /export ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;

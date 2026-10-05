@@ -41,7 +41,7 @@ function getRegisteredHelpMessage() {
 
 async function handleHelp(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /help ដោយគ្មានពាក្យផ្សេងទៀត។');
+        return ctx.reply('⚠️ សូមប្រើ /help ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;

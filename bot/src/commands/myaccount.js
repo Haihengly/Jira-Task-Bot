@@ -3,7 +3,7 @@ const { getMappingByTelegramId } = require('../db/mappings');
 
 async function handleMyAccount(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('ពាក្យបញ្ជានេះមិនត្រូវការអ្វីផ្សេងទៀតទេ។ សូមប្រើ /myaccount ដោយគ្មានពាក្យផ្សេងទៀត។');
+        return ctx.reply('⚠️ សូមប្រើ /myaccount ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
     }
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
