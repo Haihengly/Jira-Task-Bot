@@ -8,7 +8,7 @@ const UNREGISTERED_COMMANDS = [
 const REGISTERED_COMMANDS = [
     { command: 'myaccount', description: 'មើលព័ត៌មានគណនីរបស់អ្នក' },
     { command: 'mytasks', description: 'មើលកិច្ចការរបស់អ្នក' },
-    { command: 'export', description: 'នាំចេញកិច្ចការជា PDF' },
+    { command: 'export', description: 'នាំចេញកិច្ចការរបស់ខ្ញុំជា PDF' },
     { command: 'changeaccount', description: 'ប្តូរគណនី Jira' },
     { command: 'help', description: 'មើលអំពីរបៀបប្រើប្រាស់' },
     { command: 'deleteaccount', description: 'ផ្ដាច់គណនី Jira' }
@@ -20,9 +20,9 @@ const KEYBOARD_BUTTONS = {
     MY_ACCOUNT: '👤 គណនីរបស់ខ្ញុំ',
     CHANGE_ACCOUNT: '🔄 ប្តូរគណនី',
     HELP: '❓ ជំនួយ',
-    EXPORT_PDF: '📄 នាំចេញជា PDF',
+    EXPORT_PDF: '📄 នាំចេញកិច្ចការរបស់ខ្ញុំជា PDF',
     DELETE_ACCOUNT: '🔴 ផ្ដាច់គណនី',
-    PDF_TODAY: '📊 ថ្ងៃនេះ',
+    PDF_BY_STATUS: '📊 តាមស្ថានភាព',
     PDF_DATE_RANGE: '📅 ចន្លោះកាលបរិច្ឆេទ',
     TASK_TODO: '📋 ត្រូវធ្វើ',
     TASK_INPROGRESS: '🔄 កំពុងធ្វើ',
@@ -48,7 +48,7 @@ function getTasksKeyboard() {
 
 function getPdfHubKeyboard() {
     return Markup.keyboard([
-        [KEYBOARD_BUTTONS.PDF_TODAY, KEYBOARD_BUTTONS.PDF_DATE_RANGE],
+        [KEYBOARD_BUTTONS.PDF_BY_STATUS, KEYBOARD_BUTTONS.PDF_DATE_RANGE],
         [KEYBOARD_BUTTONS.BACK]
     ]).resize();
 }

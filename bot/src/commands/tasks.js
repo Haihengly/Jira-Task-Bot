@@ -49,9 +49,9 @@ async function handlePdfHub(ctx) {
 }
 
 /**
- * Handle "📊 ថ្ងៃនេះ" button from PDF Hub
+ * Handle "📊 តាមស្ថានភាព" button from PDF Hub
  */
-async function handlePdfToday(ctx) {
+async function handlePdfByStatus(ctx) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     setUserMode(telegramUserId, USER_MODES.PDF_STATUS);
 
@@ -128,7 +128,7 @@ async function exportTaskPdfDirectly(ctx, status) {
         const dateStr = new Date().toISOString().slice(0, 10);
         const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
 
-        const caption = buildTaskReportCaption(status, 'ថ្ងៃនេះ');
+        const caption = buildTaskReportCaption(status, 'តាមស្ថានភាព');
 
         await ctx.replyWithDocument(
             { source: pdfBuffer, filename },
@@ -351,7 +351,9 @@ module.exports = {
     handleTasks,
     handleMyTasks,
     handlePdfHub,
-    handlePdfToday,
+    handlePdfByStatus,
+    handlePdfToday: handlePdfByStatus,
+    handlePdfAll: handlePdfByStatus,
     handlePdfDateRange,
     handleStatusSelection,
     handleBackNavigation,

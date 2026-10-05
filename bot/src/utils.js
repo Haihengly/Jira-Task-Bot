@@ -68,11 +68,11 @@ function getCambodiaDateYMD(date = new Date()) {
 /**
  * Build PDF export caption in format: {YYYYMMDD}_របាយការណ៍កិច្ចការ{status}{timeframe}
  * @param {string} status 'To Do', 'In Progress', 'Done', etc.
- * @param {string} [timeframe='ថ្ងៃនេះ'] e.g. 'ថ្ងៃនេះ' or custom date range label
+ * @param {string} [timeframe='តាមស្ថានភាព'] e.g. 'តាមស្ថានភាព' or custom date range label
  * @param {Date|string} [date=new Date()] Date to format
  * @returns {string}
  */
-function buildTaskReportCaption(status, timeframe = 'ថ្ងៃនេះ', date = new Date()) {
+function buildTaskReportCaption(status, timeframe = 'តាមស្ថានភាព', date = new Date()) {
     const statusMap = {
         'To Do': 'ត្រូវធ្វើ',
         'In Progress': 'កំពុងធ្វើ',

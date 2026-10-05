@@ -11,7 +11,7 @@ const {
     handleTasks,
     handleMyTasks,
     handlePdfHub,
-    handlePdfToday,
+    handlePdfByStatus,
     handlePdfDateRange,
     handleStatusSelection,
     handleBackNavigation,
@@ -72,7 +72,7 @@ function createBot() {
                 text === KEYBOARD_BUTTONS.MY_TASKS ||
                 text === KEYBOARD_BUTTONS.CHANGE_ACCOUNT ||
                 text === KEYBOARD_BUTTONS.EXPORT_PDF ||
-                text === KEYBOARD_BUTTONS.PDF_TODAY ||
+                text === KEYBOARD_BUTTONS.PDF_BY_STATUS ||
                 text === KEYBOARD_BUTTONS.PDF_DATE_RANGE ||
                 text === KEYBOARD_BUTTONS.TASK_TODO ||
                 text === KEYBOARD_BUTTONS.TASK_INPROGRESS ||
@@ -195,7 +195,7 @@ function createBot() {
         return handleDeleteAccount(ctx);
     });
     bot.hears(KEYBOARD_BUTTONS.EXPORT_PDF, handlePdfHub);
-    bot.hears(KEYBOARD_BUTTONS.PDF_TODAY, handlePdfToday);
+    bot.hears(KEYBOARD_BUTTONS.PDF_BY_STATUS, handlePdfByStatus);
     bot.hears(KEYBOARD_BUTTONS.PDF_DATE_RANGE, handlePdfDateRange);
     bot.hears(KEYBOARD_BUTTONS.TASK_TODO, async (ctx) => handleStatusSelection(ctx, 'To Do'));
     bot.hears(KEYBOARD_BUTTONS.TASK_INPROGRESS, async (ctx) => handleStatusSelection(ctx, 'In Progress'));
