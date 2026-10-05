@@ -1,5 +1,13 @@
 const puppeteer = require('puppeteer');
+const fs = require('fs');
+const path = require('path');
 const { getKhmerPriority } = require('../utils');
+
+const dividerPath = path.join(__dirname, 'assets', 'divider.png');
+const dividerBase64 = fs.existsSync(dividerPath)
+    ? fs.readFileSync(dividerPath).toString('base64')
+    : '';
+const dividerDataUri = `data:image/png;base64,${dividerBase64}`;
 
 /**
  * Escape HTML special characters
@@ -295,12 +303,6 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
             color: #0f172a;
         }
 
-        .lh-divider {
-            font-size: 14px;
-            margin: 4px 0 0 0;
-            color: #0f172a;
-        }
-
         .lh-ministry-block {
             text-align: left;
         }
@@ -510,7 +512,7 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
             <div class="lh-kingdom">
                 <div class="lh-country">ព្រះរាជាណាចក្រកម្ពុជា</div>
                 <div class="lh-motto">ជាតិ សាសនា ព្រះមហាក្សត្រ</div>
-                <div class="lh-divider">——៚——</div>
+                <img src="${dividerDataUri}" style="width: 150px; height: auto; display: block; margin: 4px auto 0;" />
             </div>
             <div class="lh-ministry-block">
                 <!-- TODO: insert official seal image here -->

@@ -128,7 +128,7 @@ async function exportTaskPdfDirectly(ctx, status) {
         const dateStr = new Date().toISOString().slice(0, 10);
         const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
 
-        const caption = buildTaskReportCaption(status, 'តាមស្ថានភាព');
+        const caption = buildTaskReportCaption(status);
 
         await ctx.replyWithDocument(
             { source: pdfBuffer, filename },
