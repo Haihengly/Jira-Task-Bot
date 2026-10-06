@@ -6,7 +6,7 @@ const { setPendingRegistration } = require('./commands/link');
 const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
-const { generateMultiSectionReport } = require('./pdf/generateTaskReport');
+const { generateMultiSectionReport, generateMorningCronReport, generateTaskReport } = require('./pdf/generateTaskReport');
 
 async function sendOAuthFailureMessage(bot, chatId, reasonText, source = 'link', customAction = null) {
     if (!chatId) return;
@@ -516,7 +516,7 @@ function startWebhookServer(bot) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 
-            const { jiraAccountId, sections } = req.body || {};
+            const { jiraAccountId, sections, reportType } = req.body || {};
             if (!jiraAccountId || !Array.isArray(sections)) {
                 return res.status(400).json({ error: 'Bad Request: missing jiraAccountId or sections' });
             }
@@ -526,15 +526,43 @@ function startWebhookServer(bot) {
                 return res.status(404).json({ error: 'No mapping found for Jira account ID' });
             }
 
+            const isMorningReport = reportType === 'Morning' || (
+                sections.length === 2 &&
+                sections.some(s => s.status === 'To Do') &&
+                sections.some(s => s.status === 'In Progress')
+            );
+
+            if (isMorningReport) {
+                let allIssues = [];
+                for (const sec of sections) {
+                    const issues = await jiraClient.getIssuesByAssigneeAndStatus(jiraAccountId, sec.status);
+                    if (Array.isArray(issues)) {
+                        allIssues.push(...issues);
+                    }
+                }
+
+                const totalCount = allIssues.length;
+                res.setHeader('X-Total-Count', totalCount.toString());
+                if (totalCount === 0) {
+                    return res.json({ totalCount: 0 });
+                }
+
+                const pdfBuffer = await generateMorningCronReport(allIssues, mapping);
+                res.setHeader('Content-Type', 'application/pdf');
+                return res.send(pdfBuffer);
+            }
+
             const sectionData = [];
+            let totalCount = 0;
+
             for (const sec of sections) {
                 let issues = await jiraClient.getIssuesByAssigneeAndStatus(jiraAccountId, sec.status);
-                
+
                 if (sec.dateFilter && Array.isArray(issues)) {
                     const field = sec.dateFilter.field;
                     const fromStr = sec.dateFilter.from;
                     const toStr = sec.dateFilter.to;
-                    
+
                     issues = issues.filter(issue => {
                         const val = issue.fields?.[field];
                         if (!val) return false;
@@ -544,18 +572,36 @@ function startWebhookServer(bot) {
                         return true;
                     });
                 }
-                
+
+                const issueList = issues || [];
+                totalCount += issueList.length;
+
                 // Keep original status intact for rendering if not done today
                 let renderStatus = sec.status;
                 if (sec.status === 'Done' && sec.dateFilter) {
                     renderStatus = 'Done (Today)';
                 }
 
-                sectionData.push({ status: renderStatus, issues: issues || [] });
+                sectionData.push({ status: renderStatus, issues: issueList });
             }
 
-            const pdfBuffer = await generateMultiSectionReport(sectionData, mapping);
-            
+            res.setHeader('X-Total-Count', totalCount.toString());
+            if (totalCount === 0) {
+                return res.json({ totalCount: 0 });
+            }
+
+            const isEveningReport = reportType === 'Evening' || (
+                sections.length === 1 && sections[0].status === 'Done'
+            );
+
+            let pdfBuffer;
+            if (isEveningReport) {
+                const today = new Date().toISOString().slice(0, 10);
+                pdfBuffer = await generateTaskReport(sectionData[0].issues, 'Done', mapping, { startDate: today, endDate: today });
+            } else {
+                pdfBuffer = await generateMultiSectionReport(sectionData, mapping);
+            }
+
             res.setHeader('Content-Type', 'application/pdf');
             res.send(pdfBuffer);
             

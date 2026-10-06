@@ -7,7 +7,7 @@ const cron = require('node-cron');
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const { getAllRegisteredUsers } = require('./db');
-const { escapeMarkdown } = require('./formatting');
+const { escapeMarkdown, getCambodiaDateYMD } = require('./formatting');
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
 if (!botToken) {
@@ -31,13 +31,12 @@ if (!INTERNAL_API_KEY) {
 
 /**
  * Execute reminder job for a set of sections.
- * @param {string} jobName 
- * @param {Array} sections 
- * @param {string} greeting 
+ * @param {string} jobName 'Morning' or 'Evening'
+ * @param {Array} sections
  */
-async function sendReminders(jobName, sections, greeting) {
+async function sendReminders(jobName, sections) {
     console.log(`[cron-service] Starting ${jobName} task reminder job...`);
-    
+
     let users = [];
     try {
         users = await getAllRegisteredUsers();
@@ -52,19 +51,22 @@ async function sendReminders(jobName, sections, greeting) {
     let skippedCount = 0;
     let failedCount = 0;
 
+    const ymd = getCambodiaDateYMD();
+    const isMorning = jobName === 'Morning';
+
     for (const user of users) {
         try {
             if (!user.jira_account_id || !user.chat_id) {
                 skippedCount++;
                 continue;
             }
-            
+
             const name = user.display_name ? ` ${escapeMarkdown(user.display_name)}` : '';
-            const caption = `${greeting}${name}! នេះជាកិច្ចការរបស់អ្នកសម្រាប់ថ្ងៃនេះ៖`;
 
             const response = await axios.post(BOT_INTERNAL_URL, {
                 jiraAccountId: user.jira_account_id,
-                sections: sections
+                sections: sections,
+                reportType: jobName
             }, {
                 headers: {
                     'X-Internal-Key': INTERNAL_API_KEY
@@ -72,20 +74,48 @@ async function sendReminders(jobName, sections, greeting) {
                 responseType: 'arraybuffer'
             });
 
+            const countHeader = response.headers['x-total-count'];
+            const totalCount = countHeader !== undefined ? parseInt(countHeader, 10) : 0;
+
+            if (totalCount === 0) {
+                // Empty state (zero tasks): Send single text-only message, no PDF
+                const emptyMessage = isMorning
+                    ? `🌅 Good Morning${name}! ថ្ងៃនេះអ្នកមិនមានកិច្ចការត្រូវធ្វើ ឬកំពុងធ្វើឡើយ 🎉`
+                    : `🌙 Good Evening${name}! ថ្ងៃនេះអ្នកមិនបានបញ្ចប់កិច្ចការណាមួយឡើយ។`;
+
+                await bot.telegram.sendMessage(user.chat_id, emptyMessage);
+
+                console.log(`[cron-service] Sent zero-tasks text reminder (${jobName}) to ${user.display_name || user.jira_email}.`);
+                sentCount++;
+                await new Promise(resolve => setTimeout(resolve, 500));
+                continue;
+            }
+
+            // Tasks exist (> 0): Send TWO SEPARATE Telegram messages
+
+            // Message 1: Greeting text
+            const greetingText = isMorning
+                ? `🌅 Good Morning${name}! នេះជាកិច្ចការរបស់អ្នកសម្រាប់ថ្ងៃនេះ៖`
+                : `🌙 Good Evening${name}! នេះជាកិច្ចការរបស់អ្នកដែលបានធ្វើរួចថ្ងៃនេះ`;
+
+            await bot.telegram.sendMessage(user.chat_id, greetingText);
+
+            // Message 2: PDF Document with caption
             const pdfBuffer = Buffer.from(response.data);
             const dateStr = new Date().toISOString().slice(0, 10);
-            const reportNameStr = jobName.replace(' ', '_');
-            const filename = `Jira_Tasks_${reportNameStr}_${dateStr}.pdf`;
+            const filename = `Jira_Tasks_${jobName}_${dateStr}.pdf`;
+            const caption = isMorning
+                ? `${ymd}_របាយការណ៍កិច្ចការត្រូវធ្វើនិងកំពុងធ្វើ`
+                : `${ymd}_របាយការណ៍កិច្ចការដែលបានធ្វើរួចថ្ងៃនេះ`;
 
             await bot.telegram.sendDocument(user.chat_id, {
                 source: pdfBuffer,
                 filename: filename
             }, {
-                caption: caption,
-                parse_mode: 'Markdown'
+                caption: caption
             });
 
-            console.log(`[cron-service] Sent ${jobName} reminder to ${user.display_name || user.jira_email}.`);
+            console.log(`[cron-service] Sent ${jobName} PDF reminder to ${user.display_name || user.jira_email} (${totalCount} tasks).`);
             sentCount++;
 
             // Optional: Pause a little so we don't spam Telegram/Jira too fast
@@ -105,20 +135,18 @@ async function sendDailyReminders() {
         { status: 'To Do' },
         { status: 'In Progress' }
     ];
-    await sendReminders('Morning', sections, '🌅 អរុណសួស្តី');
+    await sendReminders('Morning', sections);
 }
 
 async function sendEveningReminders() {
     const today = new Date().toISOString().slice(0, 10);
     const sections = [
-        { status: 'To Do' },
-        { status: 'In Progress' },
-        { 
-            status: 'Done', 
-            dateFilter: { field: 'resolutiondate', from: today, to: today } 
+        {
+            status: 'Done',
+            dateFilter: { field: 'resolutiondate', from: today, to: today }
         }
     ];
-    await sendReminders('Evening', sections, '🌇 សាយ័ណ្ហសួស្តី');
+    await sendReminders('Evening', sections);
 }
 
 const MORNING_CRON_SCHEDULE = process.env.MORNING_CRON_SCHEDULE || '0 8 * * 1-5';
