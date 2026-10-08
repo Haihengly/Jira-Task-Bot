@@ -10,6 +10,17 @@ const dividerBase64 = fs.existsSync(dividerPath)
 const dividerDataUri = `data:image/png;base64,${dividerBase64}`;
 
 /**
+ * Convert ASCII digits (0-9) to Khmer numerals (០-៩)
+ * @param {string|number} value
+ * @returns {string}
+ */
+function toKhmerDigits(value) {
+    if (value === null || value === undefined) return '';
+    const khmerDigits = ['០', '១', '២', '៣', '៤', '៥', '៦', '៧', '៨', '៩'];
+    return String(value).replace(/\d/g, (digit) => khmerDigits[parseInt(digit, 10)]);
+}
+
+/**
  * Escape HTML special characters
  * @param {string} text
  * @returns {string}
@@ -45,10 +56,10 @@ function formatKhmerDateText(startDate = new Date(), endDate = null) {
     if (endDate) {
         const end = parse(endDate);
         if (end) {
-            return `ចាប់ពីថ្ងៃទី ${start.day} ខែ ${start.month} ឆ្នាំ ${start.year} ដល់ថ្ងៃទី ${end.day} ខែ ${end.month} ឆ្នាំ ${end.year}`;
+            return `ចាប់ពីថ្ងៃទី ${toKhmerDigits(start.day)} ខែ ${toKhmerDigits(start.month)} ឆ្នាំ ${toKhmerDigits(start.year)} ដល់ថ្ងៃទី ${toKhmerDigits(end.day)} ខែ ${toKhmerDigits(end.month)} ឆ្នាំ ${toKhmerDigits(end.year)}`;
         }
     }
-    return `ថ្ងៃទី ${start.day} ខែ ${start.month} ឆ្នាំ ${start.year}`;
+    return `ថ្ងៃទី ${toKhmerDigits(start.day)} ខែ ${toKhmerDigits(start.month)} ឆ្នាំ ${toKhmerDigits(start.year)}`;
 }
 
 /**
@@ -587,7 +598,7 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
                         <th class="col-req-by">អ្នកស្នើសុំ<span class="en-header">Request By</span></th>
                         <th class="col-handle-by">អ្នកទទួលបន្ទុក<span class="en-header">Handle By</span></th>
                         <th class="col-due">ថ្ងៃកំណត់<span class="en-header">Due Date</span></th>
-                        <th class="col-resolved">ថ្ងៃបញ្ចប់<span class="en-header">Resolved Date</span></th>
+                        ${isDone ? '<th class="col-resolved">ថ្ងៃបញ្ចប់<span class="en-header">Resolved Date</span></th>' : ''}
                     </tr>
                 </thead>
                 <tbody>
@@ -616,7 +627,7 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
                                 <td class="col-req-by">${formatText(reporter)}</td>
                                 <td class="col-handle-by">${formatText(assignee)}</td>
                                 <td class="col-due">${formatDueDate(dueDate, isDone)}</td>
-                                <td class="col-resolved">${formatDate(resolutiondate)}</td>
+                                ${isDone ? `<td class="col-resolved">${formatDate(resolutiondate)}</td>` : ''}
                             </tr>
                         `;
 
@@ -647,7 +658,7 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
                                         <td class="col-req-by">${formatText(subReporter)}</td>
                                         <td class="col-handle-by">${formatText(subAssignee)}</td>
                                         <td class="col-due">${formatDueDate(subDueDate, isDone)}</td>
-                                        <td class="col-resolved">${formatDate(subResolutiondate)}</td>
+                                        ${isDone ? `<td class="col-resolved">${formatDate(subResolutiondate)}</td>` : ''}
                                     </tr>
                                 `;
                             });
@@ -729,8 +740,8 @@ async function generateMultiSectionReport(sections, userMapping, options = {}) {
         let { status, issues } = section;
         if (!issues) issues = [];
         totalIssuesCount += issues.length;
-        const isDone = status === 'Done';
-        
+        const isDone = status === 'Done' || status === 'Done (Today)';
+
         let headerStatus = status;
         if (status === 'To Do') headerStatus = 'ត្រូវធ្វើ';
         else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ';
@@ -810,7 +821,7 @@ async function generateMultiSectionReport(sections, userMapping, options = {}) {
                             <th class="col-req-by">អ្នកស្នើសុំ<span class="en-header">Request By</span></th>
                             <th class="col-handle-by">អ្នកទទួលបន្ទុក<span class="en-header">Handle By</span></th>
                             <th class="col-due">ថ្ងៃកំណត់<span class="en-header">Due Date</span></th>
-                            <th class="col-resolved">ថ្ងៃបញ្ចប់<span class="en-header">Resolved Date</span></th>
+                            ${isDone ? '<th class="col-resolved">ថ្ងៃបញ្ចប់<span class="en-header">Resolved Date</span></th>' : ''}
                         </tr>
                     </thead>
                     <tbody>
@@ -839,7 +850,7 @@ async function generateMultiSectionReport(sections, userMapping, options = {}) {
                                     <td class="col-req-by">${formatText(reporter)}</td>
                                     <td class="col-handle-by">${formatText(assignee)}</td>
                                     <td class="col-due">${formatDueDate(dueDate, isDone)}</td>
-                                    <td class="col-resolved">${formatDate(resolutiondate)}</td>
+                                    ${isDone ? `<td class="col-resolved">${formatDate(resolutiondate)}</td>` : ''}
                                 </tr>
                             `;
 
@@ -870,7 +881,7 @@ async function generateMultiSectionReport(sections, userMapping, options = {}) {
                                             <td class="col-req-by">${formatText(subReporter)}</td>
                                             <td class="col-handle-by">${formatText(subAssignee)}</td>
                                             <td class="col-due">${formatDueDate(subDueDate, isDone)}</td>
-                                            <td class="col-resolved">${formatDate(subResolutiondate)}</td>
+                                            ${isDone ? `<td class="col-resolved">${formatDate(subResolutiondate)}</td>` : ''}
                                         </tr>
                                     `;
                                 });
@@ -1508,6 +1519,7 @@ module.exports = {
     generateMultiSectionReport,
     generateTaskReport,
     formatKhmerDateText,
+    toKhmerDigits,
     getCategoryLabel,
     getStatusBadge,
     getPriorityBadge,
