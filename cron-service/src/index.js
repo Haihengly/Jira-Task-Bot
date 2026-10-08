@@ -51,6 +51,7 @@ async function sendReminders(jobName, sections) {
     let skippedCount = 0;
     let failedCount = 0;
     const failedUserIds = [];
+    const skippedUserIds = [];
 
     const ymd = getCambodiaDateYMD();
     const isMorning = jobName === 'Morning';
@@ -59,6 +60,9 @@ async function sendReminders(jobName, sections) {
         try {
             if (!user.jira_account_id || !user.chat_id) {
                 skippedCount++;
+                if (user && user.telegram_user_id) {
+                    skippedUserIds.push(user.telegram_user_id);
+                }
                 continue;
             }
 
@@ -135,18 +139,35 @@ async function sendReminders(jobName, sections) {
     console.log(`[cron-service] ${jobName} reminder job finished. Summary: Total: ${users.length}, Sent: ${sentCount}, Skipped: ${skippedCount}, Failed: ${failedCount}`);
 
     const adminChatId = process.env.ADMIN_CHAT_ID;
-    if (failedCount > 0 && adminChatId) {
+    if (adminChatId) {
         try {
-            const alertMessage = `⚠️ [Cron Alert] ${jobName} reminder job finished with failures.\n\n` +
-                `• Sent: ${sentCount}\n` +
-                `• Skipped: ${skippedCount}\n` +
-                `• Failed: ${failedCount}\n` +
-                `• Failed Telegram User IDs: ${failedUserIds.join(', ') || 'N/A'}`;
+            let alertMessage = '';
 
-            await bot.telegram.sendMessage(adminChatId, alertMessage);
-            console.log(`[cron-service] Sent failure alert to ADMIN_CHAT_ID (${adminChatId}).`);
+            if (failedCount > 0 || skippedCount > 0) {
+                alertMessage = `⚠️ [Cron Alert] ${jobName} reminder job finished with issues.\n\n` +
+                    `• Sent: ${sentCount}\n` +
+                    `• Skipped: ${skippedCount}\n` +
+                    `• Failed: ${failedCount}\n`;
+
+                if (failedCount > 0) {
+                    alertMessage += `• Failed Telegram User IDs: ${failedUserIds.join(', ') || 'N/A'}\n`;
+                }
+
+                if (skippedCount > 0) {
+                    alertMessage += `• Skipped Telegram User IDs: ${skippedUserIds.join(', ') || 'N/A'}\n` +
+                                    `Skipped users have incomplete records (missing jira_account_id or chat_id)`;
+                }
+            } else {
+                alertMessage = `✅ [Cron Report] ${jobName} reminder job finished.\n\n` +
+                    `• Sent: ${sentCount}\n` +
+                    `• Skipped: ${skippedCount}\n` +
+                    `• Failed: ${failedCount}`;
+            }
+
+            await bot.telegram.sendMessage(adminChatId, alertMessage.trim());
+            console.log(`[cron-service] Sent tracking alert to ADMIN_CHAT_ID (${adminChatId}).`);
         } catch (alertErr) {
-            console.error(`[cron-service] Failed to send failure alert to ADMIN_CHAT_ID:`, alertErr.message);
+            console.error(`[cron-service] Failed to send tracking alert to ADMIN_CHAT_ID:`, alertErr.message);
         }
     }
 }

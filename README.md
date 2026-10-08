@@ -61,7 +61,7 @@ The bot uses Express to handle `POST /webhook/jira` requests from Jira for real-
 ### Automated Reminders
 The `cron-service` automatically sends daily reminders. These are pre-configured to run at **8:00 AM** (morning task list) and **5:00 PM** (evening completed tasks report) in the **Asia/Phnom_Penh** timezone.
 - Adjust the schedules via `MORNING_CRON_SCHEDULE` and `EVENING_CRON_SCHEDULE` (cron expressions) and `CRON_TIMEZONE` in your `.env`.
-- Optionally configure `ADMIN_CHAT_ID` in your `.env` to receive automated Telegram alerts if any reminders fail during a cron run.
+- Optionally configure `ADMIN_CHAT_ID` in your `.env` to receive an automated Telegram report after every cron run.
 
 ---
 
