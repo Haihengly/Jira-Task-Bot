@@ -1,1 +1,0 @@
-- [Task PDF Export Workflow](bot/src/pdf/generateTaskReport.js) — hooked into keyboard navigation in bot.js and tasks.js

@@ -9,3 +9,7 @@ data/
 bot-data/
 CLAUDE.md
 explain.md
+MEMORY.md
+MEMOMORY.md
+run.sh
+test-cron.sh
