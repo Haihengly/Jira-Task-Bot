@@ -1,4 +1,5 @@
 const express = require('express');
+const crypto = require('crypto');
 const axios = require('axios');
 const { getMappingByJiraAccountId, getMappingByTelegramId, saveMapping } = require('./db/mappings');
 const { getRegisteredKeyboard, REGISTERED_COMMANDS } = require('./utils/commands');
@@ -512,7 +513,20 @@ function startWebhookServer(bot) {
     app.post('/internal/generate-report', async (req, res) => {
         try {
             const apiKey = req.headers['x-internal-key'];
-            if (!apiKey || apiKey !== process.env.INTERNAL_API_KEY) {
+            const expectedKey = process.env.INTERNAL_API_KEY;
+
+            if (!apiKey || !expectedKey) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
+            const apiKeyBuf = Buffer.from(apiKey);
+            const expectedKeyBuf = Buffer.from(expectedKey);
+
+            if (apiKeyBuf.length !== expectedKeyBuf.length) {
+                return res.status(401).json({ error: 'Unauthorized' });
+            }
+
+            if (!crypto.timingSafeEqual(apiKeyBuf, expectedKeyBuf)) {
                 return res.status(401).json({ error: 'Unauthorized' });
             }
 

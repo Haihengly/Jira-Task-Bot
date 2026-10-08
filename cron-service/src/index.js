@@ -50,6 +50,7 @@ async function sendReminders(jobName, sections) {
     let sentCount = 0;
     let skippedCount = 0;
     let failedCount = 0;
+    const failedUserIds = [];
 
     const ymd = getCambodiaDateYMD();
     const isMorning = jobName === 'Morning';
@@ -124,11 +125,30 @@ async function sendReminders(jobName, sections) {
 
         } catch (err) {
             failedCount++;
+            if (user && user.telegram_user_id) {
+                failedUserIds.push(user.telegram_user_id);
+            }
             console.error(`[cron-service] Error sending ${jobName} reminder to user ${user.telegram_user_id} (${user.jira_email}):`, err.response ? err.response.data.toString() : err.message);
         }
     }
 
     console.log(`[cron-service] ${jobName} reminder job finished. Summary: Total: ${users.length}, Sent: ${sentCount}, Skipped: ${skippedCount}, Failed: ${failedCount}`);
+
+    const adminChatId = process.env.ADMIN_CHAT_ID;
+    if (failedCount > 0 && adminChatId) {
+        try {
+            const alertMessage = `⚠️ [Cron Alert] ${jobName} reminder job finished with failures.\n\n` +
+                `• Sent: ${sentCount}\n` +
+                `• Skipped: ${skippedCount}\n` +
+                `• Failed: ${failedCount}\n` +
+                `• Failed Telegram User IDs: ${failedUserIds.join(', ') || 'N/A'}`;
+
+            await bot.telegram.sendMessage(adminChatId, alertMessage);
+            console.log(`[cron-service] Sent failure alert to ADMIN_CHAT_ID (${adminChatId}).`);
+        } catch (alertErr) {
+            console.error(`[cron-service] Failed to send failure alert to ADMIN_CHAT_ID:`, alertErr.message);
+        }
+    }
 }
 
 async function sendDailyReminders() {
