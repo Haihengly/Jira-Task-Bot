@@ -556,12 +556,20 @@ function startWebhookServer(bot) {
             let totalCount = 0;
 
             for (const sec of sections) {
-                let issues = await jiraClient.getIssuesByAssigneeAndStatus(jiraAccountId, sec.status);
+                let additionalJql = '';
+                if (sec.dateFilter) {
+                    if (sec.dateFilter.from) additionalJql += ` AND ${sec.dateFilter.field} >= "${sec.dateFilter.from}"`;
+                    if (sec.dateFilter.to) additionalJql += ` AND ${sec.dateFilter.field} <= "${sec.dateFilter.to} 23:59"`;
+                }
+
+                let issues = await jiraClient.getIssuesByAssigneeAndStatus(jiraAccountId, sec.status, undefined, additionalJql);
 
                 if (sec.dateFilter && Array.isArray(issues)) {
                     const field = sec.dateFilter.field;
                     const fromStr = sec.dateFilter.from;
                     const toStr = sec.dateFilter.to;
+
+                    const countBefore = issues.length;
 
                     issues = issues.filter(issue => {
                         const val = issue.fields?.[field];
@@ -571,6 +579,8 @@ function startWebhookServer(bot) {
                         if (toStr && dateOnly > toStr) return false;
                         return true;
                     });
+
+                    console.log(`[Internal Report] ${sec.status} date filter (from: ${fromStr}, to: ${toStr}): fetched ${countBefore}, kept ${issues.length}`);
                 }
 
                 const issueList = issues || [];
@@ -596,7 +606,7 @@ function startWebhookServer(bot) {
 
             let pdfBuffer;
             if (isEveningReport) {
-                const today = new Date().toISOString().slice(0, 10);
+                const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
                 pdfBuffer = await generateTaskReport(sectionData[0].issues, 'Done', mapping, { startDate: today, endDate: today });
             } else {
                 pdfBuffer = await generateMultiSectionReport(sectionData, mapping);

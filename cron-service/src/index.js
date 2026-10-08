@@ -71,6 +71,7 @@ async function sendReminders(jobName, sections) {
                 headers: {
                     'X-Internal-Key': INTERNAL_API_KEY
                 },
+                timeout: 60000,
                 responseType: 'arraybuffer'
             });
 
@@ -139,7 +140,7 @@ async function sendDailyReminders() {
 }
 
 async function sendEveningReminders() {
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
     const sections = [
         {
             status: 'Done',
@@ -150,7 +151,7 @@ async function sendEveningReminders() {
 }
 
 const MORNING_CRON_SCHEDULE = process.env.MORNING_CRON_SCHEDULE || '0 8 * * 1-5';
-const EVENING_MORNING_CRON_SCHEDULE = process.env.EVENING_MORNING_CRON_SCHEDULE || '0 17 * * 1-5';
+const EVENING_CRON_SCHEDULE = process.env.EVENING_CRON_SCHEDULE || '0 17 * * 1-5';
 const TIMEZONE = process.env.CRON_TIMEZONE || 'Asia/Phnom_Penh';
 
 console.log(`[cron-service] Initializing morning cron job with schedule: "${MORNING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
@@ -163,8 +164,8 @@ cron.schedule(MORNING_CRON_SCHEDULE, () => {
     timezone: TIMEZONE
 });
 
-console.log(`[cron-service] Initializing evening cron job with schedule: "${EVENING_MORNING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
-cron.schedule(EVENING_MORNING_CRON_SCHEDULE, () => {
+console.log(`[cron-service] Initializing evening cron job with schedule: "${EVENING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
+cron.schedule(EVENING_CRON_SCHEDULE, () => {
     sendEveningReminders().catch(err => {
         console.error('[cron-service] Unhandled error during scheduled evening reminder execution:', err);
     });
