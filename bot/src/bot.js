@@ -5,6 +5,7 @@ const {
     handleChangeAccount,
     handleConfirmRegister,
     handleCancelRegister,
+    handleLinkReadyCb
 } = require('./commands/link');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const {
@@ -96,7 +97,8 @@ function createBot() {
                 callbackData === 'cancel_register' ||
                 callbackData === 'confirm_delete_account' ||
                 callbackData === 'cancel_delete_account' ||
-                callbackData.startsWith('export_pdf_')
+                callbackData.startsWith('export_pdf_') ||
+                callbackData.startsWith('link_ready:')
             ) {
                 return next();
             }
@@ -209,6 +211,9 @@ function createBot() {
     // Handle inline button callbacks for unregistration confirmation
     bot.action('confirm_delete_account', handleConfirmDeleteAccount);
     bot.action('cancel_delete_account', handleCancelDeleteAccount);
+
+    // Handle initial link readiness callback
+    bot.action(/^link_ready:(.+)$/, handleLinkReadyCb);
 
     // Handle PDF export callback
     bot.action(/^export_pdf_(.+)$/, handleExportPdf);

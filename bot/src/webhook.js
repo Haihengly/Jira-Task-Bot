@@ -279,21 +279,34 @@ function startWebhookServer(bot) {
             }
 
             if (!hasAccessToOurSite) {
+                const actionButton = source === 'changeaccount' ? '"🔄 ប្តូរគណនី"' : '"🔗 ភ្ជាប់គណនី Jira"';
+                const recoveryAction =
+                    `សូមអនុវត្តតាមជំហានដោះស្រាយ៖\n` +
+                    `1️⃣ ចេញពីគណនី Atlassian នៅ https://id.atlassian.com (Log out)\n` +
+                    `2️⃣ ចូលគណនី Atlassian ដែលអ្នកប្រើជាមួយ Jira ឡើងវិញ\n` +
+                    `3️⃣ ចុចប៊ូតុង ${actionButton} (ឬ ${command}) ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី`;
+
                 await sendOAuthFailureMessage(
                     bot,
                     chatId,
                     `អ្នកបានជ្រើសរើស Site Jira ដែលមិនត្រឹមត្រូវ។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
                     source,
-                    `សូមប្រើ ${command} ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី ហើយជ្រើសរើស Site ត្រឹមត្រូវ។`
+                    recoveryAction
                 );
                 return res.status(403).send(`
                     <html>
                     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
                     <body style="background-color: #f0f2f5;">
-                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 440px; margin-left: auto; margin-right: auto;">
                         <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
                         <h2 style="color: #333; margin-top: 20px;">ការអនុញ្ញាតត្រូវបានបដិសេធ!</h2>
-                        <p style="color: #666; font-size: 16px;">អ្នកបានជ្រើសរើស Site Jira ដែលមិនត្រឹមត្រូវ។ សូមជ្រើសរើស Site ដែលជាផ្លូវការរបស់យើង ពេលអ្នកអនុញ្ញាតកម្មវិធី។</p>
+                        <p style="color: #666; font-size: 16px;">អ្នកបានជ្រើសរើស Site Jira ដែលមិនត្រឹមត្រូវ។</p>
+                        <div style="color: #444; font-size: 14px; text-align: left; background: #f8f9fa; padding: 14px; border-radius: 8px; margin-top: 20px; line-height: 1.6;">
+                            <strong>ជំហានដោះស្រាយ៖</strong><br>
+                            1. ចេញពីគណនី Atlassian នៅ <a href="https://id.atlassian.com" target="_blank" style="color: #0052cc;">id.atlassian.com</a><br>
+                            2. ចូលគណនីដែលអ្នកប្រើជាមួយ Jira ឡើងវិញ<br>
+                            3. ត្រឡប់ទៅ Telegram ហើយចុច ${actionButton} ម្តងទៀត
+                        </div>
                     </div>
                     </body>
                     </html>
@@ -317,20 +330,34 @@ function startWebhookServer(bot) {
             }
 
             if (!jiraUser || !jiraUser.accountId) {
+                const actionButton = source === 'changeaccount' ? '"🔄 ប្តូរគណនី"' : '"🔗 ភ្ជាប់គណនី Jira"';
+                const recoveryAction =
+                    `សូមអនុវត្តតាមជំហានដោះស្រាយ៖\n` +
+                    `1️⃣ ចេញពីគណនី Atlassian នៅ https://id.atlassian.com (Log out)\n` +
+                    `2️⃣ ចូលគណនី Atlassian ដែលអ្នកប្រើជាមួយ Jira ឡើងវិញ\n` +
+                    `3️⃣ ចុចប៊ូតុង ${actionButton} (ឬ ${command}) ម្តងទៀត ដើម្បីទទួលបានតំណភ្ជាប់ថ្មី`;
+
                 await sendOAuthFailureMessage(
                     bot,
                     chatId,
                     `គណនី Atlassian របស់អ្នកមិនមានសិទ្ធិចូលប្រើប្រាស់ Jira នេះទេ ឬមិនត្រូវបានរកឃើញ។\n\nតំណភ្ជាប់នេះឥឡូវត្រូវបានប្រើប្រាស់រួចហើយ។`,
-                    source
+                    source,
+                    recoveryAction
                 );
                 return res.status(404).send(`
                     <html>
                     <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"></head>
                     <body style="background-color: #f0f2f5;">
-                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
+                    <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 440px; margin-left: auto; margin-right: auto;">
                         <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
                         <h2 style="color: #333; margin-top: 20px;">រកមិនឃើញគណនី Jira!</h2>
                         <p style="color: #666; font-size: 16px;">គណនី Atlassian របស់អ្នកមិនមានសិទ្ធិចូលប្រើប្រាស់ Jira នេះទេ ឬមិនត្រូវបានរកឃើញ។</p>
+                        <div style="color: #444; font-size: 14px; text-align: left; background: #f8f9fa; padding: 14px; border-radius: 8px; margin-top: 20px; line-height: 1.6;">
+                            <strong>ជំហានដោះស្រាយ៖</strong><br>
+                            1. ចេញពីគណនី Atlassian នៅ <a href="https://id.atlassian.com" target="_blank" style="color: #0052cc;">id.atlassian.com</a><br>
+                            2. ចូលគណនីដែលអ្នកប្រើជាមួយ Jira ឡើងវិញ<br>
+                            3. ត្រឡប់ទៅ Telegram ហើយចុច ${actionButton} ម្តងទៀត
+                        </div>
                     </div>
                     </body>
                     </html>

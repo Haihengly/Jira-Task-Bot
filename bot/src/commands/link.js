@@ -12,77 +12,108 @@ function getOAuthUrl(telegramUserId, chatId, source = 'link') {
 }
 
 /**
- * Handle /link command (OAuth-only).
- * Any arguments passed are rejected.
+ * Shared Step 1: Pre-link warning instructions and "ready" callback button.
  */
-async function handleLink(ctx) {
-    if (ctx.payload && ctx.payload.trim().length > 0) {
-        return ctx.reply('⚠️ សូមប្រើ /link ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
-    }
-
+async function sendLinkPrecheck(ctx, source = 'link') {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
 
-    if (!telegramUserId || !chatId) {
-        return ctx.reply('Unable to read your Telegram /chat information.');
+    if (!telegramUserId) {
+        return ctx.reply('Unable to read your Telegram information.');
     }
 
     try {
         const existingMapping = await getMappingByTelegramId(telegramUserId);
-        if (existingMapping) {
+        if (source === 'link' && existingMapping) {
             return ctx.reply('អ្នកបានភ្ជាប់គណនីរួចហើយ។ សូមប្រើ /changeaccount ដើម្បីប្តូរគណនី Jira របស់អ្នក។');
         }
+        if (source === 'changeaccount' && !existingMapping) {
+            return ctx.reply('អ្នកមិនទាន់បានភ្ជាប់គណនីទេ។ សូមប្រើ /link ជាមុនសិន។');
+        }
     } catch (err) {
-        console.error('Error checking existing mapping in /link:', err);
+        console.error(`Error checking existing mapping in precheck (${source}):`, err);
     }
 
-    const oauthUrl = getOAuthUrl(telegramUserId, chatId, 'link');
-    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីភ្ជាប់គណនី Jira របស់អ្នក។\n\n⏳ តំណភ្ជាប់នេះមានសុពលភាព 10 នាទី\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
+    const precheckMsg =
+        `🔗 មុនពេលភ្ជាប់គណនី សូមត្រៀមខ្លួន៖\n\n` +
+        `1️⃣ បើអ្នកមានគណនី Atlassian ច្រើន ឬមិនប្រាកដថាកំពុងប្រើគណនីមួយណា សូមចេញពីគណនី Atlassian (Log out) ជាមុនសិន\n` +
+        `2️⃣ ចូលគណនី Atlassian ដែលអ្នកប្រើជាមួយ Jira ឡើងវិញ\n` +
+        `3️⃣ ចុច "✅ ខ្ញុំត្រៀមរួចហើយ" ខាងក្រោម`;
 
     return ctx.reply(
-        messageText,
+        precheckMsg,
         Markup.inlineKeyboard([
-            Markup.button.url('🔗 ភ្ជាប់គណនី Jira', oauthUrl)
+            [Markup.button.url('🔍 បើកទំព័រគណនី Atlassian', 'https://id.atlassian.com')],
+            [Markup.button.callback('✅ ខ្ញុំត្រៀមរួចហើយ', `link_ready:${source}`)]
         ])
     );
 }
 
 /**
+ * Handle /link command (OAuth-only).
+ */
+async function handleLink(ctx) {
+    if (ctx.payload && ctx.payload.trim().length > 0) {
+        return ctx.reply('⚠️ សូមប្រើ /link ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
+    }
+    return sendLinkPrecheck(ctx, 'link');
+}
+
+/**
  * Handle /changeaccount command (OAuth-only).
- * Any arguments passed are rejected.
  */
 async function handleChangeAccount(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
         return ctx.reply('⚠️ សូមប្រើ /changeaccount ដោយគ្មានអក្សរផ្សេងទៀតនៅពីក្រោយ។');
     }
+    return sendLinkPrecheck(ctx, 'changeaccount');
+}
+
+/**
+ * Handle callback for "✅ ខ្ញុំត្រៀមរួចហើយ" (Step 2: Generate OAuth token & show login button).
+ */
+async function handleLinkReadyCb(ctx) {
+    await ctx.answerCbQuery().catch(() => {});
+
+    const callbackData = ctx.callbackQuery?.data || '';
+    const source = callbackData.startsWith('link_ready:') ? callbackData.split(':')[1] : 'link';
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     const chatId = ctx.chat?.id ? ctx.chat.id.toString() : null;
 
     if (!telegramUserId || !chatId) {
-        return ctx.reply('Unable to read your Telegram /chat information.');
+        return ctx.editMessageText('Unable to read your Telegram /chat information.').catch(() => {});
     }
 
-    let existingMapping = null;
+    // Point-of-use verification to reject cleanly if state changed (e.g. already linked or not linked)
     try {
-        existingMapping = await getMappingByTelegramId(telegramUserId);
+        const existingMapping = await getMappingByTelegramId(telegramUserId);
+        if (source === 'link' && existingMapping) {
+            return ctx.editMessageText('⚠️ អ្នកបានភ្ជាប់គណនីរួចហើយ។ មិនអាចភ្ជាប់ម្តងទៀតទេ។ សូមប្រើ /changeaccount ដើម្បីប្តូរគណនី។').catch(() => {});
+        }
+        if (source === 'changeaccount' && !existingMapping) {
+            return ctx.editMessageText('⚠️ អ្នកមិនទាន់បានភ្ជាប់គណនីទេ។ មិនអាចប្តូរគណនីបានទេ។ សូមប្រើ /link ជាមុនសិន។').catch(() => {});
+        }
     } catch (err) {
-        console.error('Error checking existing mapping in /changeaccount:', err);
+        console.error('Error verifying mapping in link_ready callback:', err);
     }
 
-    if (!existingMapping) {
-        return ctx.reply('អ្នកមិនទាន់បានភ្ជាប់គណនីទេ។ សូមប្រើ /link ជាមុនសិន។');
-    }
+    // Create OAuth state token ONLY at step 2 (10 min validity starts now)
+    const oauthUrl = getOAuthUrl(telegramUserId, chatId, source);
+    const actionText = source === 'changeaccount' ? 'ប្តូរគណនី Jira របស់អ្នក' : 'ភ្ជាប់គណនី Jira របស់អ្នក';
+    const messageText =
+        `🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បី${actionText}៖\n\n` +
+        `⏳ តំណភ្ជាប់នេះមានសុពលភាព 10 នាទី\n\n` +
+        `⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចរាល់ មុននឹងចុច។\n\n` +
+        `សូមអរគុណ`;
 
-    const oauthUrl = getOAuthUrl(telegramUserId, chatId, 'changeaccount');
-    const messageText = "🔗 សូមចុចប៊ូតុងខាងក្រោម ដើម្បីប្តូរគណនី Jira របស់អ្នក។\n\n⏳ តំណភ្ជាប់នេះមានសុពលភាព 10 នាទី\n\n⚠️ សូមប្រាកដថាអ្នកបានចូលគណនី Atlassian ដែលត្រឹមត្រូវរួចហើយ មុននឹងចុច។ ប្រសិនបើវាបង្ហាញគណនីខុស សូមចេញពីគណនី Atlassian របស់អ្នកសិន រួចចូលគណនីដែលត្រឹមត្រូវ បន្ទាប់មកត្រឡប់មកកាន់ Telegram ហើយចុចប៊ូតុង ភ្ជាប់គណនី Jira ម្តងទៀត។\n\n🔍 ពិនិត្យគណនី Atlassian បច្ចុប្បន្នរបស់អ្នក៖ https://id.atlassian.com\n\nសូមអរគុណ";
-
-    return ctx.reply(
+    return ctx.editMessageText(
         messageText,
         Markup.inlineKeyboard([
-            Markup.button.url('🔗 ភ្ជាប់គណនី Jira', oauthUrl)
+            Markup.button.url('🔐 ចូលជាមួយ Atlassian', oauthUrl)
         ])
-    );
+    ).catch(err => {
+        console.error('Failed to edit message in handleLinkReadyCb:', err.message);
+    });
 }
 
 function setPendingRegistration(telegramUserId, params) {
@@ -98,14 +129,11 @@ async function handleConfirmRegister(ctx) {
     }
 
     const pending = pendingRegistrations.get(telegramUserId);
-
-    // Remove from pending and persist mapping
     pendingRegistrations.delete(telegramUserId);
 
     try {
         await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email, pending.displayName);
 
-        // Update scoped Telegram menu for this user to unlock registered commands
         try {
             await ctx.telegram.setMyCommands(REGISTERED_COMMANDS, { scope: { type: 'chat', chat_id: pending.chatId } });
         } catch (menuErr) {
@@ -149,6 +177,7 @@ async function handleCancelRegister(ctx) {
 module.exports = {
     handleLink,
     handleChangeAccount,
+    handleLinkReadyCb,
     handleConfirmRegister,
     handleCancelRegister,
     setPendingRegistration
