@@ -33,8 +33,9 @@ if (!INTERNAL_API_KEY) {
  * Execute reminder job for a set of sections.
  * @param {string} jobName 'Morning' or 'Evening'
  * @param {Array} sections
+ * @param {string|null} [targetUserId=null]
  */
-async function sendReminders(jobName, sections) {
+async function sendReminders(jobName, sections, targetUserId = null) {
     console.log(`[cron-service] Starting ${jobName} task reminder job...`);
 
     let users = [];
@@ -45,7 +46,12 @@ async function sendReminders(jobName, sections) {
         return;
     }
 
-    console.log(`[cron-service] Found ${users.length} registered user(s).`);
+    if (targetUserId) {
+        users = users.filter(u => String(u.telegram_user_id) === String(targetUserId));
+        console.log(`[cron-service] Filtered users for target user ID ${targetUserId}: ${users.length} match(es).`);
+    } else {
+        console.log(`[cron-service] Found ${users.length} registered user(s).`);
+    }
 
     let sentCount = 0;
     let skippedCount = 0;
@@ -172,15 +178,15 @@ async function sendReminders(jobName, sections) {
     }
 }
 
-async function sendDailyReminders() {
+async function sendDailyReminders(targetUserId = null) {
     const sections = [
         { status: 'To Do' },
         { status: 'In Progress' }
     ];
-    await sendReminders('Morning', sections);
+    await sendReminders('Morning', sections, targetUserId);
 }
 
-async function sendEveningReminders() {
+async function sendEveningReminders(targetUserId = null) {
     const today = new Date().toLocaleDateString('en-CA', { timeZone: TIMEZONE });
     const sections = [
         {
@@ -188,34 +194,74 @@ async function sendEveningReminders() {
             dateFilter: { field: 'resolutiondate', from: today, to: today }
         }
     ];
-    await sendReminders('Evening', sections);
+    await sendReminders('Evening', sections, targetUserId);
 }
 
 const MORNING_CRON_SCHEDULE = process.env.MORNING_CRON_SCHEDULE || '0 8 * * 1-5';
 const EVENING_CRON_SCHEDULE = process.env.EVENING_CRON_SCHEDULE || '0 17 * * 1-5';
 const TIMEZONE = process.env.CRON_TIMEZONE || 'Asia/Phnom_Penh';
 
-console.log(`[cron-service] Initializing morning cron job with schedule: "${MORNING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
-cron.schedule(MORNING_CRON_SCHEDULE, () => {
-    sendDailyReminders().catch(err => {
-        console.error('[cron-service] Unhandled error during scheduled morning reminder execution:', err);
-    });
-}, {
-    scheduled: true,
-    timezone: TIMEZONE
-});
+// Parse command-line arguments for manual run
+const args = process.argv.slice(2);
+let runMode = null;
+let targetUserId = null;
 
-console.log(`[cron-service] Initializing evening cron job with schedule: "${EVENING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
-cron.schedule(EVENING_CRON_SCHEDULE, () => {
-    sendEveningReminders().catch(err => {
-        console.error('[cron-service] Unhandled error during scheduled evening reminder execution:', err);
-    });
-}, {
-    scheduled: true,
-    timezone: TIMEZONE
-});
+for (let i = 0; i < args.length; i++) {
+    const arg = args[i];
+    if (arg.startsWith('--run=')) {
+        runMode = arg.substring(6);
+    } else if (arg === '--run' && i + 1 < args.length) {
+        runMode = args[++i];
+    } else if (arg.startsWith('--user=')) {
+        targetUserId = arg.substring(7);
+    } else if (arg === '--user' && i + 1 < args.length) {
+        targetUserId = args[++i];
+    }
+}
 
-console.log('[cron-service] Service is running and waiting for scheduled cron triggers.');
+if (runMode) {
+    if (runMode !== 'morning' && runMode !== 'evening') {
+        console.error(`[cron-service] FATAL: Invalid --run option "${runMode}". Expected "morning" or "evening".`);
+        process.exit(1);
+    }
+
+    (async () => {
+        try {
+            console.log(`[cron-service] Executing one-time manual run: mode="${runMode}"${targetUserId ? `, user="${targetUserId}"` : ''}`);
+            if (runMode === 'morning') {
+                await sendDailyReminders(targetUserId);
+            } else if (runMode === 'evening') {
+                await sendEveningReminders(targetUserId);
+            }
+            process.exit(0);
+        } catch (err) {
+            console.error(`[cron-service] Unhandled error during manual ${runMode} execution:`, err);
+            process.exit(1);
+        }
+    })();
+} else {
+    console.log(`[cron-service] Initializing morning cron job with schedule: "${MORNING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
+    cron.schedule(MORNING_CRON_SCHEDULE, () => {
+        sendDailyReminders().catch(err => {
+            console.error('[cron-service] Unhandled error during scheduled morning reminder execution:', err);
+        });
+    }, {
+        scheduled: true,
+        timezone: TIMEZONE
+    });
+
+    console.log(`[cron-service] Initializing evening cron job with schedule: "${EVENING_CRON_SCHEDULE}" in timezone "${TIMEZONE}".`);
+    cron.schedule(EVENING_CRON_SCHEDULE, () => {
+        sendEveningReminders().catch(err => {
+            console.error('[cron-service] Unhandled error during scheduled evening reminder execution:', err);
+        });
+    }, {
+        scheduled: true,
+        timezone: TIMEZONE
+    });
+
+    console.log('[cron-service] Service is running and waiting for scheduled cron triggers.');
+}
 
 module.exports = {
     sendDailyReminders,

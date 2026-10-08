@@ -1,0 +1,1 @@
+docker compose run --rm cron-service node src/index.js --run=$1 --user=7845153640
