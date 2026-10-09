@@ -1,77 +1,83 @@
 # Jira Telegram Bot
 
-A 1-on-1 Telegram bot that integrates with Jira Cloud for staff task tracking and automated notifications.
+A Jira Cloud Telegram bot designed for MPWT staff (Khmer UI) to track tasks and generate reports. 
 
-## Project Overview
-This project assists team members in tracking Jira tasks directly from Telegram. 
-- **Core Functionality**: Register Jira accounts, view assigned tasks, and handle assignment notifications.
-- **Microservices**: Orchestrated as separate services:
-  - `bot/`: Telegram bot polling for commands and a Webhook listener for real-time Jira updates.
-  - `cron-service/`: A scheduled service querying Jira for daily task summaries.
-- **Persistence**: SQLite (local storage) with Docker bind-mounts.
+## Features
+- **Atlassian OAuth 2.0 account linking**: Uses `/link`, `/changeaccount`, and `/deleteaccount` with Jira site verification.
+- **Task Management**: `/mytasks` (To Do / In Progress / Done) and `/myaccount` to view your profile and task counts.
+- **PDF Export**: Generate PDF reports of tasks using `/export`, `/pdf`, or the 📄 button, featuring the Khmer government letterhead.
+- **Real-time Notifications**: Receive Telegram messages when a Jira task is assigned or unassigned to you.
+- **Automated Cron Service**: Sends PDF task reports in the morning (08:00) and evening (17:00), Mon-Fri.
 
----
+## Architecture
+- **Microservices via Docker Compose**: 
+  - `bot`: Handles Telegram commands and an Express server on port 3030 for webhooks and OAuth routing. Uses Puppeteer for generating PDF reports.
+  - `cron-service`: A scheduled service to dispatch morning/evening PDF reports and summaries.
+  - `cloudflared`: Exposes the local Express server to the internet via Cloudflare Tunnel.
+- **Database**: SQLite (persisted via Docker bind-mounts).
 
 ## Setup & Running
 
-### 1. Prerequisites
-- [Docker](https://docs.docker.com/get-docker/) & Docker Compose.
-- A Jira Cloud account with API token access.
-- A Telegram Bot Token from [@BotFather](https://t.me/botfather).
+### 1. Environment Variables
+Create a `.env` file using the `.env.example` as a template and provide the required values:
+- `JIRA_EMAIL`
+- `JIRA_API_TOKEN`
+- `JIRA_BASE_URL`
+- `ATLASSIAN_CLIENT_ID`
+- `ATLASSIAN_CLIENT_SECRET`
+- `TELEGRAM_BOT_TOKEN`
+- `DB_PATH`
+- `INTERNAL_API_KEY`
+- `BOT_INTERNAL_URL`
+- `MORNING_CRON_SCHEDULE`
+- `EVENING_CRON_SCHEDULE`
+- `CRON_TIMEZONE`
+- `ADMIN_CHAT_ID`
 
-### 2. Configuration
-Copy the example environment file and fill in required variables:
-```bash
-cp .env.example .env
-# Edit .env and enter your JIRA_EMAIL, JIRA_API_TOKEN, TELEGRAM_BOT_TOKEN, etc.
-```
+### 2. Integrations Configuration
+- **Atlassian OAuth 2.0 (3LO) App**: Create an app with `read:me` and `read:jira-user` scopes. Set its callback URL appropriately for your domain (e.g., `https://your-domain/auth/callback`).
+- **Jira Webhook**: Configure a webhook in Jira to send to `https://your-domain/webhook/jira` for the `issue updated` events (the bot handles assign and unassign).
+- **Cloudflare Tunnel**: Ensure your `cloudflared` tunnel is configured and authenticated to point your public domain to the `bot` service (port 3030).
 
-### 3. Data Persistence (One-time)
-Create the data directory and set correct permissions for the Docker user (UID 1000):
+### 3. Start the Application
+Create the local data directory and set proper permissions (UID 1000 for Docker), then start the services:
+
 ```bash
 mkdir -p ./bot-data
 sudo chown -R 1000:1000 ./bot-data
-```
-
-### 4. Running the Bot
-Build and launch all services (bot, cron-service, and ngrok for webhook exposition):
-```bash
 docker compose up -d --build
 ```
 
----
+## Usage
 
-## Telegram Commands
+### Telegram Commands
 | Command | Description |
 | :--- | :--- |
-| `/register <email>` | Link your Telegram account to your Jira account. |
-| `/myaccount` | Show linked account info and task counts. |
-| `/todo` | List "To Do" tasks (sorted by urgency). |
-| `/inprogress` | List "In Progress" tasks (sorted by urgency). |
-| `/done` | List "Done" tasks (alphabetical). |
-| `/help` | Display all available commands and usage. |
+| `/start` or `/help` | Display the welcome message, help text, and reply keyboard menu. |
+| `/link` | Link your Telegram account to your Atlassian/Jira account via OAuth 2.0. |
+| `/changeaccount` | Switch the currently linked Atlassian account. |
+| `/deleteaccount` | Unlink your current Atlassian account from the Telegram bot. |
+| `/myaccount` | Show your linked account info and current task counts. |
+| `/mytasks` | View tasks broken down by To Do / In Progress / Done status. |
+| `/export` or `/pdf` | Open the PDF Export Hub to generate task reports. |
 
----
+### Automated Reports (Cron Jobs)
+The `cron-service` runs automatically on weekdays (Mon-Fri) based on the server's `.env` configuration (defaulting to Asia/Phnom_Penh timezone):
+- **Morning (08:00)**: Sends a PDF report showing one merged table: In Progress first, then To Do, each sorted by due date.
+- **Evening (17:00)**: Sends a PDF report of tasks resolved today.
 
-## Development & Deployment
+*Admin note: If configured, the `ADMIN_CHAT_ID` receives an execution summary after these runs.*
 
-### Local Development
-The bot uses Express to handle `POST /webhook/jira` requests from Jira for real-time assignment notifications. `ngrok` is included in `docker-compose.yml` to expose your local instance. Access http://localhost:4040 to inspect traffic.
+### Testing Cron Manually
+You can trigger a one-shot manual run of the cron logic for testing. It executes cleanly and exits immediately without waiting on schedules:
 
-### Automated Reminders
-The `cron-service` automatically sends daily reminders. These are pre-configured to run at **8:00 AM** (morning task list) and **5:00 PM** (evening completed tasks report) in the **Asia/Phnom_Penh** timezone.
-- Adjust the schedules via `MORNING_CRON_SCHEDULE` and `EVENING_CRON_SCHEDULE` (cron expressions) and `CRON_TIMEZONE` in your `.env`.
-- Optionally configure `ADMIN_CHAT_ID` in your `.env` to receive an automated Telegram report after every cron run.
-
----
-
-## Project Structure
+```bash
+docker compose run --rm cron-service node src/index.js --run=morning --user=<telegram_id>
+# Or substitute `--run=evening` for the evening report.
 ```
-jira-telegram-bot/
-├── bot/                    # Telegram bot & Webhook server
-├── cron-service/           # Scheduled reminder service
-├── bot-data/               # Persistent DB storage (UID 1000)
-├── docker-compose.yml      # Multi-service orchestration
-├── Dockerfile.bot          # Bot container definition
-└── Dockerfile.cron-service # Cron service container definition
-```
+**Warning:** Omitting the `--user` flag will send the report to ALL registered users.
+
+## Known Limitations / Missing Features
+- **Date-range PDF reporting**: Currently not supported (PDFs are generated by status, with no date filtering).
+- **Office-wide weekly report**: A summary spanning the entire team/office is not built yet.
+- **Admin Dashboard**: Web interface for managing users and bot configurations is pending.
