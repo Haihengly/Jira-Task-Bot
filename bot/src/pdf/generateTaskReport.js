@@ -35,8 +35,13 @@ function escapeHtml(text) {
         .replace(/'/g, '&#039;');
 }
 
+const KHMER_MONTH_NAMES = [
+    'មករា', 'កុម្ភៈ', 'មីនា', 'មេសា', 'ឧសភា', 'មិថុនា',
+    'កក្កដា', 'សីហា', 'កញ្ញា', 'តុលា', 'វិច្ឆិកា', 'ធ្នូ'
+];
+
 /**
- * Format dynamic Khmer date description text.
+ * Format dynamic Khmer date description text with Khmer month names.
  * @param {Date|string} [startDate]
  * @param {Date|string} [endDate]
  * @returns {string}
@@ -47,19 +52,20 @@ function formatKhmerDateText(startDate = new Date(), endDate = null) {
         const date = new Date(d);
         if (isNaN(date.getTime())) return null;
         const day = date.toLocaleDateString('en-GB', { timeZone: 'Asia/Phnom_Penh', day: '2-digit' });
-        const month = date.toLocaleDateString('en-GB', { timeZone: 'Asia/Phnom_Penh', month: '2-digit' });
+        const monthNum = parseInt(date.toLocaleDateString('en-GB', { timeZone: 'Asia/Phnom_Penh', month: 'numeric' }), 10);
         const year = date.toLocaleDateString('en-GB', { timeZone: 'Asia/Phnom_Penh', year: 'numeric' });
-        return { day, month, year };
+        const monthName = (monthNum >= 1 && monthNum <= 12) ? KHMER_MONTH_NAMES[monthNum - 1] : monthNum;
+        return { day, monthName, year };
     };
 
     const start = parse(startDate) || parse(new Date());
     if (endDate) {
         const end = parse(endDate);
         if (end) {
-            return `ចាប់ពីថ្ងៃទី ${toKhmerDigits(start.day)} ខែ ${toKhmerDigits(start.month)} ឆ្នាំ ${toKhmerDigits(start.year)} ដល់ថ្ងៃទី ${toKhmerDigits(end.day)} ខែ ${toKhmerDigits(end.month)} ឆ្នាំ ${toKhmerDigits(end.year)}`;
+            return `ចាប់ពីថ្ងៃទី ${toKhmerDigits(start.day)} ខែ ${start.monthName} ឆ្នាំ ${toKhmerDigits(start.year)} ដល់ថ្ងៃទី ${toKhmerDigits(end.day)} ខែ ${end.monthName} ឆ្នាំ ${toKhmerDigits(end.year)}`;
         }
     }
-    return `ថ្ងៃទី ${toKhmerDigits(start.day)} ខែ ${toKhmerDigits(start.month)} ឆ្នាំ ${toKhmerDigits(start.year)}`;
+    return `ថ្ងៃទី ${toKhmerDigits(start.day)} ខែ ${start.monthName} ឆ្នាំ ${toKhmerDigits(start.year)}`;
 }
 
 /**

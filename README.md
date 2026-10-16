@@ -21,7 +21,7 @@ A Jira Cloud Telegram bot designed for MPWT staff (Khmer UI) to track tasks and 
 ### 1. Environment Variables
 Create a `.env` file using the `.env.example` as a template and provide the required values:
 - `JIRA_EMAIL`
-- `JIRA_API_TOKEN`
+- `JIRA_API_TOKEN` 
 - `JIRA_BASE_URL`
 - `ATLASSIAN_CLIENT_ID`
 - `ATLASSIAN_CLIENT_SECRET`
