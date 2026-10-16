@@ -1531,5 +1531,6 @@ module.exports = {
     getPriorityBadge,
     formatDueDate,
     formatDate,
-    formatText
+    formatText,
+    KHMER_MONTH_NAMES
 };

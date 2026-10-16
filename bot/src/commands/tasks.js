@@ -1,6 +1,14 @@
 const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
-const { getTodayDateString, formatPriorityAndDue, escapeMarkdown, buildTaskReportCaption } = require('../utils');
+const {
+    getTodayDateString,
+    formatPriorityAndDue,
+    escapeMarkdown,
+    escapeHtml,
+    escapeAttr,
+    getKhmerPriority,
+    buildTaskReportCaption
+} = require('../utils');
 const {
     getRegisteredKeyboard,
     getTasksKeyboard,
@@ -12,7 +20,7 @@ const {
     getUserMode,
     clearUserMode
 } = require('../utils/userState');
-const { generateTaskReport } = require('../pdf/generateTaskReport');
+const { generateTaskReport, KHMER_MONTH_NAMES } = require('../pdf/generateTaskReport');
 
 /**
  * Handle /mytasks command or "📋 កិច្ចការរបស់ខ្ញុំ" button
@@ -162,6 +170,65 @@ async function handleStatusSelection(ctx, status) {
 }
 
 /**
+ * Format due date in Khmer: <day> <Khmer month>
+ * Reuses KHMER_MONTH_NAMES from the PDF code.
+ * @param {string} dueDateStr 'YYYY-MM-DD'
+ * @returns {string|null} e.g. "25 តុលា" or null
+ */
+function formatKhmerDueDate(dueDateStr) {
+    if (!dueDateStr) return null;
+    const parts = dueDateStr.split('-');
+    if (parts.length < 3) return null;
+    const day = parseInt(parts[2], 10);
+    const month = parseInt(parts[1], 10);
+    if (isNaN(day) || isNaN(month) || month < 1 || month > 12) return null;
+    const monthName = KHMER_MONTH_NAMES[month - 1];
+    return `${day} ${monthName}`;
+}
+
+/**
+ * Format priority and due date line for code block (<pre>):
+ * priority emoji + Khmer label | ថ្ងៃកំណត់៖ <day> <Khmer month>, plus ⚠️ ផុតកំណត់ if overdue, or គ្មាន if no due date.
+ * @param {string} priorityName
+ * @param {string} dueDate
+ * @param {string} today
+ * @returns {string}
+ */
+function formatTaskPriorityAndDue(priorityName, dueDate, today) {
+    const { emoji, label } = getKhmerPriority(priorityName);
+    const formattedDue = formatKhmerDueDate(dueDate);
+    let dueText = '';
+    if (formattedDue) {
+        const isOverdue = dueDate && dueDate < today;
+        dueText = ` | ថ្ងៃកំណត់៖ ${formattedDue}${isOverdue ? ' ⚠️ ផុតកំណត់' : ''}`;
+    } else {
+        dueText = ` | ថ្ងៃកំណត់៖ គ្មាន`;
+    }
+    return `${emoji} ${label}${dueText}`;
+}
+
+/**
+ * Get Khmer label for issue type:
+ * Task -> កិច្ចការ, Sub-task -> កិច្ចការរង, Bug -> កំហុស, Story -> រឿង, Epic -> Epic
+ * @param {Object} issue
+ * @returns {string}
+ */
+function getIssueTypeLabel(issue) {
+    const issuetype = issue.fields?.issuetype;
+    if (issuetype?.subtask) return 'កិច្ចការរង';
+    const typeName = typeof issuetype === 'string' ? issuetype : issuetype?.name;
+    const map = {
+        'Task': 'កិច្ចការ',
+        'Bug': 'កំហុស',
+        'Story': 'រឿង',
+        'Epic': 'Epic',
+        'Sub-task': 'កិច្ចការរង',
+        'Subtask': 'កិច្ចការរង'
+    };
+    return (typeName && map[typeName]) ? map[typeName] : (typeName || 'កិច្ចការ');
+}
+
+/**
  * Handle plain-text tasks display
  */
 async function handleTasks(ctx, status) {
@@ -182,7 +249,7 @@ async function handleTasks(ctx, status) {
         }
 
         const isDone = status === 'Done';
-        const fields = isDone ? 'summary,project,subtasks' : 'summary,status,assignee,priority,duedate,project,subtasks';
+        const fields = 'summary,status,assignee,priority,duedate,project,subtasks,issuetype';
 
         const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
 
@@ -203,7 +270,7 @@ async function handleTasks(ctx, status) {
         else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ';
         else if (status === 'Done') headerStatus = 'បានធ្វើរួច';
 
-        let message = `📋 *កិច្ចការ${headerStatus}* (${issues.length}):\n`;
+        const header = `📋 <b>កិច្ចការ${headerStatus}</b> (${issues.length}):\nចុចលើប្រភេទកិច្ចការ ដើម្បីបើកក្នុង Jira\n`;
 
         // Group issues by project name
         const groupedIssues = {};
@@ -220,28 +287,49 @@ async function handleTasks(ctx, status) {
 
         const today = isDone ? null : getTodayDateString();
 
+        // Build list of message chunks (keeping each under 4096-character limit)
+        const MAX_MSG_LENGTH = 3800;
+        const messages = [];
+        let currentMsg = header;
+
         sortedProjectNames.forEach(projectName => {
             const projectIssues = groupedIssues[projectName];
+            const projectHeader = `\n🗂 <b>${escapeHtml(projectName)}</b>\n\n`;
 
-            message += `\n🗂 *${escapeMarkdown(projectName)}*\n\n`;
+            if (currentMsg.length + projectHeader.length > MAX_MSG_LENGTH && currentMsg.trim().length > 0) {
+                messages.push(currentMsg.trim());
+                currentMsg = projectHeader;
+            } else {
+                currentMsg += projectHeader;
+            }
+
+            // Map all issues by key
+            const issuesByKey = new Map();
+            projectIssues.forEach(issue => {
+                if (issue.key) issuesByKey.set(issue.key, issue);
+            });
+
+            // Identify all subtask keys within this project
+            const subtaskKeys = new Set();
+            projectIssues.forEach(issue => {
+                (issue.fields?.subtasks || []).forEach(st => {
+                    if (st.key) subtaskKeys.add(st.key);
+                });
+            });
+
+            // Filter top-level issues
+            const topLevelIssues = projectIssues.filter(issue => !subtaskKeys.has(issue.key));
 
             if (isDone) {
                 // Sort alphabetically by issue key
-                projectIssues.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
-
-                projectIssues.forEach((issue) => {
-                    const issueKey = issue.key;
-                    const summary = issue.fields?.summary || 'No summary';
-                    const issueUrl = baseUrl ? `${baseUrl}/browse/${issueKey}` : '#';
-
-                    message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n\n`;
-                });
+                topLevelIssues.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
             } else {
                 // Sort by urgency:
                 // 1. Overdue tasks first (duedate < today)
                 // 2. Upcoming tasks (duedate >= today, soonest first)
                 // 3. Tasks without a due date last
-                projectIssues.sort((a, b) => {
+                // Tie-breaker: issue key alphabetical
+                topLevelIssues.sort((a, b) => {
                     const dueA = a.fields?.duedate;
                     const dueB = b.fields?.duedate;
 
@@ -264,29 +352,101 @@ async function handleTasks(ctx, status) {
 
                     return (a.key || '').localeCompare(b.key || '');
                 });
+            }
 
-                projectIssues.forEach((issue) => {
-                    const issueKey = issue.key;
-                    const summary = issue.fields?.summary || 'No summary';
-                    const issueUrl = baseUrl ? `${baseUrl}/browse/${issueKey}` : '#';
+            topLevelIssues.forEach((issue, idx) => {
+                const parentIdx = idx + 1;
+                const issueKey = issue.key || '';
+                const summary = issue.fields?.summary || 'No summary';
+                const issueUrl = baseUrl ? `${baseUrl}/browse/${issueKey}` : '#';
+                const typeLabel = getIssueTypeLabel(issue);
 
+                let preContent = escapeHtml(summary);
+                if (!isDone) {
                     const priorityName = issue.fields?.priority?.name || 'None';
                     const dueDate = issue.fields?.duedate;
-                    const priorityAndDueText = formatPriorityAndDue(priorityName, dueDate, {
-                        withPriorityLabel: true,
-                        alwaysShowDueDate: true,
-                        today
-                    });
+                    const priorityAndDueText = formatTaskPriorityAndDue(priorityName, dueDate, today);
+                    preContent += `\n${priorityAndDueText}`;
+                }
 
-                    message += `[${issueKey}](${issueUrl}): ${escapeMarkdown(summary)}\n`;
-                    message += `   ${priorityAndDueText}\n\n`;
+                const taskBlock = `${parentIdx}. <a href="${escapeAttr(issueUrl)}">${escapeHtml(typeLabel)}</a> ៖\n<pre>${preContent}</pre>\n\n`;
+
+                if (currentMsg.length + taskBlock.length > MAX_MSG_LENGTH && currentMsg.trim().length > 0) {
+                    messages.push(currentMsg.trim());
+                    currentMsg = taskBlock;
+                } else {
+                    currentMsg += taskBlock;
+                }
+
+                // Render subtasks under this parent
+                const rawSubtasks = (issue.fields?.subtasks || []).map(st => {
+                    return issuesByKey.get(st.key) || st;
+                }).filter(st => {
+                    const stStatus = st.fields?.status?.name;
+                    if (stStatus && stStatus !== status) {
+                        return false;
+                    }
+                    return true;
                 });
-            }
+
+                if (rawSubtasks.length > 0) {
+                    if (isDone) {
+                        rawSubtasks.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
+                    } else {
+                        rawSubtasks.sort((a, b) => {
+                            const dueA = a.fields?.duedate;
+                            const dueB = b.fields?.duedate;
+                            const getCat = (due) => {
+                                if (!due) return 3;
+                                if (due < today) return 1;
+                                return 2;
+                            };
+                            const catA = getCat(dueA);
+                            const catB = getCat(dueB);
+                            if (catA !== catB) return catA - catB;
+                            if (dueA && dueB) return dueA.localeCompare(dueB);
+                            return (a.key || '').localeCompare(b.key || '');
+                        });
+                    }
+
+                    rawSubtasks.forEach((subtask, sIdx) => {
+                        const subIdx = sIdx + 1;
+                        const subKey = subtask.key || '';
+                        const subSummary = subtask.fields?.summary || 'No summary';
+                        const subUrl = baseUrl ? `${baseUrl}/browse/${subKey}` : '#';
+                        const subTypeLabel = getIssueTypeLabel(subtask);
+
+                        let subPreContent = escapeHtml(subSummary);
+                        if (!isDone) {
+                            const subPriority = subtask.fields?.priority?.name || 'None';
+                            const subDueDate = subtask.fields?.duedate;
+                            const subPriorityAndDue = formatTaskPriorityAndDue(subPriority, subDueDate, today);
+                            subPreContent += `\n${subPriorityAndDue}`;
+                        }
+
+                        const subtaskBlock = `${parentIdx}.${subIdx} <a href="${escapeAttr(subUrl)}">${escapeHtml(subTypeLabel)}</a> ៖\n<pre>${subPreContent}</pre>\n\n`;
+
+                        if (currentMsg.length + subtaskBlock.length > MAX_MSG_LENGTH && currentMsg.trim().length > 0) {
+                            messages.push(currentMsg.trim());
+                            currentMsg = subtaskBlock;
+                        } else {
+                            currentMsg += subtaskBlock;
+                        }
+                    });
+                }
+            });
         });
 
-        return ctx.replyWithMarkdown(message, {
-            disable_web_page_preview: true
-        });
+        if (currentMsg.trim().length > 0) {
+            messages.push(currentMsg.trim());
+        }
+
+        for (const msg of messages) {
+            await ctx.reply(msg, {
+                parse_mode: 'HTML',
+                disable_web_page_preview: true
+            });
+        }
     } catch (error) {
         console.error(`Error handling task command for status "${status}":`, error);
         return ctx.reply('An error occurred while fetching your Jira tasks. Please try again later.');

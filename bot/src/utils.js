@@ -89,6 +89,34 @@ function escapeMarkdown(text) {
     return text.toString().replace(/([_*[\]()~`>#+\-=|{}.!])/g, '\\$1');
 }
 
+/**
+ * Escape HTML special characters for Telegram HTML parse mode.
+ * Escapes &, <, and >.
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeHtml(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+/**
+ * Escape HTML attribute values (href, etc.).
+ * @param {string} text
+ * @returns {string}
+ */
+function escapeAttr(text) {
+    if (!text) return '';
+    return String(text)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
 module.exports = {
     getTodayDateString,
     getCambodiaDateYMD,
@@ -96,5 +124,7 @@ module.exports = {
     getKhmerPriority,
     formatDueDate,
     formatPriorityAndDue,
-    escapeMarkdown
+    escapeMarkdown,
+    escapeHtml,
+    escapeAttr
 };
