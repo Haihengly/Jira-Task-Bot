@@ -16,6 +16,7 @@ const {
     handlePdfDateRange,
     handleStatusSelection,
     handleBackNavigation,
+    exportAllTasksPdf,
     handleExportPdf
 } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
@@ -28,7 +29,7 @@ const {
     REGISTERED_COMMANDS,
     UNREGISTERED_COMMANDS
 } = require('./utils/commands');
-const { clearUserMode } = require('./utils/userState');
+const { clearUserMode, getUserMode, USER_MODES } = require('./utils/userState');
 
 function createBot() {
     const token = process.env.TELEGRAM_BOT_TOKEN;
@@ -78,6 +79,7 @@ function createBot() {
                 text === KEYBOARD_BUTTONS.TASK_TODO ||
                 text === KEYBOARD_BUTTONS.TASK_INPROGRESS ||
                 text === KEYBOARD_BUTTONS.TASK_DONE ||
+                text === KEYBOARD_BUTTONS.TASK_ALL ||
                 text === KEYBOARD_BUTTONS.BACK
             ) {
                 if (telegramUserId) {
@@ -202,6 +204,14 @@ function createBot() {
     bot.hears(KEYBOARD_BUTTONS.TASK_TODO, async (ctx) => handleStatusSelection(ctx, 'To Do'));
     bot.hears(KEYBOARD_BUTTONS.TASK_INPROGRESS, async (ctx) => handleStatusSelection(ctx, 'In Progress'));
     bot.hears(KEYBOARD_BUTTONS.TASK_DONE, async (ctx) => handleStatusSelection(ctx, 'Done'));
+    bot.hears(KEYBOARD_BUTTONS.TASK_ALL, async (ctx, next) => {
+        const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+        const mode = getUserMode(telegramUserId);
+        if (mode === USER_MODES.PDF_STATUS) {
+            return exportAllTasksPdf(ctx);
+        }
+        return next();
+    });
     bot.hears(KEYBOARD_BUTTONS.BACK, handleBackNavigation);
 
     // Handle inline button callbacks for registration confirmation

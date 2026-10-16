@@ -73,14 +73,37 @@ class JiraClient {
             if (additionalJql) {
                 jql += additionalJql;
             }
-            const response = await this.client.get(`/rest/api/3/search/jql`, {
-                params: {
+            const allIssues = [];
+            let nextPageToken = undefined;
+            const MAX_PAGES = 50;
+            let pageCount = 0;
+
+            while (pageCount < MAX_PAGES) {
+                pageCount++;
+                const params = {
                     jql,
                     fields,
-                    maxResults: 100 // ensure we get a larger page for Done tasks
+                    maxResults: 100
+                };
+                if (nextPageToken) {
+                    params.nextPageToken = nextPageToken;
                 }
-            });
-            return response.data.issues || [];
+
+                const response = await this.client.get(`/rest/api/3/search/jql`, { params });
+                const issues = response.data?.issues || [];
+                allIssues.push(...issues);
+
+                if (response.data?.isLast || !response.data?.nextPageToken || response.data?.nextPageToken === nextPageToken) {
+                    break;
+                }
+                nextPageToken = response.data.nextPageToken;
+            }
+
+            if (pageCount >= MAX_PAGES && nextPageToken) {
+                console.warn(`WARNING: Hit max page limit (${MAX_PAGES}) while fetching issues for status "${status}". Some issues may not be included.`);
+            }
+
+            return allIssues;
         } catch (error) {
             console.error('Error retrieving Jira issues:', error.response?.data || error.message);
             throw error;

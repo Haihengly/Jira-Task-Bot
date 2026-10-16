@@ -27,6 +27,7 @@ const KEYBOARD_BUTTONS = {
     TASK_TODO: '📋 ត្រូវធ្វើ',
     TASK_INPROGRESS: '🔄 កំពុងធ្វើ',
     TASK_DONE: '✅ បានធ្វើរួច',
+    TASK_ALL: 'ទាំងអស់',
     BACK: '⬅️ ត្រឡប់ក្រោយ'
 };
 
@@ -42,6 +43,14 @@ function getRegisteredKeyboard() {
 function getTasksKeyboard() {
     return Markup.keyboard([
         [KEYBOARD_BUTTONS.TASK_TODO, KEYBOARD_BUTTONS.TASK_INPROGRESS, KEYBOARD_BUTTONS.TASK_DONE],
+        [KEYBOARD_BUTTONS.BACK]
+    ]).resize();
+}
+
+function getPdfStatusKeyboard() {
+    return Markup.keyboard([
+        [KEYBOARD_BUTTONS.TASK_TODO, KEYBOARD_BUTTONS.TASK_INPROGRESS],
+        [KEYBOARD_BUTTONS.TASK_DONE, KEYBOARD_BUTTONS.TASK_ALL],
         [KEYBOARD_BUTTONS.BACK]
     ]).resize();
 }
@@ -70,6 +79,7 @@ module.exports = {
     KEYBOARD_BUTTONS,
     getRegisteredKeyboard,
     getTasksKeyboard,
+    getPdfStatusKeyboard,
     getPdfHubKeyboard,
     getUnregisteredKeyboard,
     generateHelpCommandList

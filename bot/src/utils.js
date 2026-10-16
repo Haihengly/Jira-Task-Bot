@@ -76,7 +76,9 @@ function buildTaskReportCaption(status, timeframe = '', date = new Date()) {
     const statusMap = {
         'To Do': 'ត្រូវធ្វើ',
         'In Progress': 'កំពុងធ្វើ',
-        'Done': 'បានធ្វើរួច'
+        'Done': 'បានធ្វើរួច',
+        'All': 'ទាំងអស់',
+        'ទាំងអស់': 'ទាំងអស់'
     };
     const statusKhmer = statusMap[status] || status;
     const ymd = getCambodiaDateYMD(date);

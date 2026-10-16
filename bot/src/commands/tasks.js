@@ -2,6 +2,7 @@ const jiraClient = require('../jira/client');
 const { getMappingByTelegramId } = require('../db/mappings');
 const {
     getTodayDateString,
+    getCambodiaDateYMD,
     formatPriorityAndDue,
     escapeMarkdown,
     escapeHtml,
@@ -12,6 +13,7 @@ const {
 const {
     getRegisteredKeyboard,
     getTasksKeyboard,
+    getPdfStatusKeyboard,
     getPdfHubKeyboard
 } = require('../utils/commands');
 const {
@@ -20,7 +22,7 @@ const {
     getUserMode,
     clearUserMode
 } = require('../utils/userState');
-const { generateTaskReport, KHMER_MONTH_NAMES } = require('../pdf/generateTaskReport');
+const { generateTaskReport, generateMultiSectionReport, KHMER_MONTH_NAMES } = require('../pdf/generateTaskReport');
 
 /**
  * Handle /mytasks command or "📋 កិច្ចការរបស់ខ្ញុំ" button
@@ -65,7 +67,7 @@ async function handlePdfByStatus(ctx) {
 
     return ctx.reply(
         'សូមជ្រើសរើសប្រភេទកិច្ចការសម្រាប់ទាញយកជា PDF៖',
-        getTasksKeyboard()
+        getPdfStatusKeyboard()
     );
 }
 
@@ -133,7 +135,7 @@ async function exportTaskPdfDirectly(ctx, status) {
         const pdfBuffer = Buffer.from(rawPdf);
 
         const statusClean = status.replace(/\s+/g, '_');
-        const dateStr = new Date().toISOString().slice(0, 10);
+        const dateStr = getCambodiaDateYMD();
         const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
 
         const caption = buildTaskReportCaption(status);
@@ -148,6 +150,75 @@ async function exportTaskPdfDirectly(ctx, status) {
         }
     } catch (error) {
         console.error(`Error exporting PDF for status "${status}":`, error);
+        if (statusMsg) {
+            await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+        }
+        return ctx.reply('មានបញ្ហាក្នុងការបង្កើត PDF។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។');
+    }
+}
+
+/**
+ * Export all tasks (To Do, In Progress, Done) in a single multi-section PDF report
+ */
+async function exportAllTasksPdf(ctx) {
+    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
+    if (!telegramUserId) {
+        return ctx.reply('Unable to read your Telegram user ID.');
+    }
+
+    let statusMsg = null;
+    try {
+        await ctx.sendChatAction('upload_document');
+        statusMsg = await ctx.reply('កំពុងបង្កើត PDF... សូមរង់ចាំបន្តិច។');
+
+        const mapping = await getMappingByTelegramId(telegramUserId);
+        if (!mapping || !mapping.jira_account_id) {
+            if (statusMsg) {
+                await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+            }
+            return ctx.reply('សូមភ្ជាប់គណនី Jira របស់អ្នកជាមុនសិន ដោយប្រើ /link');
+        }
+
+        const [todoIssues, inProgressIssues, doneIssues] = await Promise.all([
+            jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, 'To Do'),
+            jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, 'In Progress'),
+            jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, 'Done')
+        ]);
+
+        const totalCount = (todoIssues?.length || 0) + (inProgressIssues?.length || 0) + (doneIssues?.length || 0);
+        console.log(`[PDF Export All] Issues fetched for ${mapping.jira_email || mapping.jira_account_id}: To Do = ${todoIssues?.length || 0}, In Progress = ${inProgressIssues?.length || 0}, Done = ${doneIssues?.length || 0} (Total: ${totalCount})`);
+
+        if (totalCount === 0) {
+            if (statusMsg) {
+                await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+            }
+            return ctx.reply('មិនមានកិច្ចការសម្រាប់ទាញយកជា PDF នោះទេ។');
+        }
+
+        const sections = [
+            { status: 'To Do', issues: todoIssues || [] },
+            { status: 'In Progress', issues: inProgressIssues || [] },
+            { status: 'Done', issues: doneIssues || [] }
+        ];
+
+        const rawPdf = await generateMultiSectionReport(sections, mapping);
+        const pdfBuffer = Buffer.from(rawPdf);
+
+        const dateStr = getCambodiaDateYMD();
+        const filename = `Jira_Tasks_All_${dateStr}.pdf`;
+
+        const caption = buildTaskReportCaption('All');
+
+        await ctx.replyWithDocument(
+            { source: pdfBuffer, filename },
+            { caption }
+        );
+
+        if (statusMsg) {
+            await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
+        }
+    } catch (error) {
+        console.error('Error exporting All tasks PDF:', error);
         if (statusMsg) {
             await ctx.telegram.deleteMessage(ctx.chat.id, statusMsg.message_id).catch(() => {});
         }
@@ -517,5 +588,6 @@ module.exports = {
     handlePdfDateRange,
     handleStatusSelection,
     handleBackNavigation,
+    exportAllTasksPdf,
     handleExportPdf
 };
