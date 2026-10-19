@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
-const { getKhmerPriority, getTodayDateString } = require('../utils');
+const { getKhmerPriority, getTodayDateString, getIssueTypeLabel, sortIssuesByUrgency } = require('../utils');
 
 const dividerPath = path.join(__dirname, 'assets', 'divider.png');
 const dividerBase64 = fs.existsSync(dividerPath)
@@ -98,24 +98,10 @@ function getPriorityBadge(priorityName) {
  * @returns {string}
  */
 function getCategoryLabel(issueType) {
-    if (!issueType) {
+    const label = getIssueTypeLabel(issueType, { fallback: null, checkSubtaskFlag: false });
+    if (!label) {
         return `<span style="color: #94a3b8;">គ្មាន</span>`;
     }
-    const typeName = typeof issueType === 'string' ? issueType : issueType.name;
-    if (!typeName) {
-        return `<span style="color: #94a3b8;">គ្មាន</span>`;
-    }
-
-    const map = {
-        'Task': 'កិច្ចការ',
-        'Bug': 'កំហុស',
-        'Story': 'រឿង',
-        'Epic': 'Epic',
-        'Sub-task': 'កិច្ចការរង',
-        'Subtask': 'កិច្ចការរង'
-    };
-
-    const label = map[typeName] || typeName;
     return `<span>${escapeHtml(label)}</span>`;
 }
 
@@ -258,29 +244,7 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
         if (isDone) {
             projectIssues.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
         } else {
-            projectIssues.sort((a, b) => {
-                const dueA = a.fields?.duedate;
-                const dueB = b.fields?.duedate;
-
-                const getCategory = (due) => {
-                    if (!due) return 3;
-                    if (due < today) return 1;
-                    return 2;
-                };
-
-                const catA = getCategory(dueA);
-                const catB = getCategory(dueB);
-
-                if (catA !== catB) {
-                    return catA - catB;
-                }
-
-                if (dueA && dueB) {
-                    return dueA.localeCompare(dueB);
-                }
-
-                return (a.key || '').localeCompare(b.key || '');
-            });
+            sortIssuesByUrgency(projectIssues, today);
         }
     });
 
@@ -1059,32 +1023,6 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
         return name !== 'In Progress' && name !== 'To Do' && name !== 'Done';
     });
 
-    const sortByDueDate = (list) => {
-        list.sort((a, b) => {
-            const dueA = a.fields?.duedate;
-            const dueB = b.fields?.duedate;
-
-            const getCategory = (due) => {
-                if (!due) return 3;
-                if (due < today) return 1;
-                return 2;
-            };
-
-            const catA = getCategory(dueA);
-            const catB = getCategory(dueB);
-
-            if (catA !== catB) {
-                return catA - catB;
-            }
-
-            if (dueA && dueB) {
-                return dueA.localeCompare(dueB);
-            }
-
-            return (a.key || '').localeCompare(b.key || '');
-        });
-    };
-
     const sortByResolutionDate = (list) => {
         list.sort((a, b) => {
             const resA = a.fields?.resolutiondate;
@@ -1108,10 +1046,10 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
         });
     };
 
-    sortByDueDate(inProgressIssues);
-    sortByDueDate(toDoIssues);
+    sortIssuesByUrgency(inProgressIssues, today);
+    sortIssuesByUrgency(toDoIssues, today);
     sortByResolutionDate(doneIssues);
-    sortByDueDate(otherIssues);
+    sortIssuesByUrgency(otherIssues, today);
 
     const sortedIssues = [...inProgressIssues, ...toDoIssues, ...doneIssues, ...otherIssues];
 

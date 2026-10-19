@@ -25,6 +25,7 @@ Create a `.env` file using the `.env.example` as a template and provide the requ
 - `JIRA_BASE_URL`
 - `ATLASSIAN_CLIENT_ID`
 - `ATLASSIAN_CLIENT_SECRET`
+- `PUBLIC_BASE_URL`
 - `TELEGRAM_BOT_TOKEN`
 - `DB_PATH`
 - `INTERNAL_API_KEY`

@@ -4,10 +4,10 @@ const axios = require('axios');
 const { getMappingByJiraAccountId, getMappingByTelegramId, saveMapping } = require('./db/mappings');
 const { getRegisteredKeyboard, REGISTERED_COMMANDS } = require('./utils/commands');
 const { setPendingRegistration } = require('./commands/link');
-const { formatTaskPriorityAndDue, getIssueTypeLabel } = require('./commands/tasks');
+const { formatTaskPriorityAndDue } = require('./commands/tasks');
 const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
-const { getTodayDateString, escapeMarkdown, escapeHtml, escapeAttr } = require('./utils');
+const { PUBLIC_BASE_URL, getTodayDateString, getIssueTypeLabel, escapeMarkdown, escapeHtml, escapeAttr } = require('./utils');
 const { generateMultiSectionReport, generateMorningCronReport, generateTaskReport } = require('./pdf/generateTaskReport');
 
 async function sendOAuthFailureMessage(bot, chatId, reasonText, source = 'link', customAction = null) {
@@ -109,7 +109,7 @@ function startWebhookServer(bot) {
         }
 
         const clientId = process.env.ATLASSIAN_CLIENT_ID;
-        const redirectUri = 'https://jirabot.kaizenops.site/auth/callback';
+        const redirectUri = `${PUBLIC_BASE_URL}/auth/callback`;
         const authUrl = `https://auth.atlassian.com/authorize?audience=api.atlassian.com&client_id=${clientId}&scope=${encodeURIComponent('read:me read:jira-user')}&redirect_uri=${encodeURIComponent(redirectUri)}&state=${encodeURIComponent(state)}&response_type=code&prompt=consent`;
         res.redirect(authUrl);
     });
@@ -237,7 +237,7 @@ function startWebhookServer(bot) {
             `);
         }
 
-        const redirectUri = 'https://jirabot.kaizenops.site/auth/callback';
+        const redirectUri = `${PUBLIC_BASE_URL}/auth/callback`;
 
         try {
             const tokenResponse = await axios.post('https://auth.atlassian.com/oauth/token', {

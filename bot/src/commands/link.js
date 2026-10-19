@@ -2,6 +2,7 @@ const { Markup } = require('telegraf');
 const { saveMapping, getMappingByTelegramId } = require('../db/mappings');
 const { REGISTERED_COMMANDS, getRegisteredKeyboard } = require('../utils/commands');
 const { createOAuthState } = require('../auth/state');
+const { PUBLIC_BASE_URL } = require('../utils');
 
 // In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping, expiresAt }
 const pendingRegistrations = new Map();
@@ -9,7 +10,7 @@ const PENDING_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 function getOAuthUrl(telegramUserId, chatId, source = 'link') {
     const state = createOAuthState(telegramUserId, chatId, source);
-    return `https://jirabot.kaizenops.site/auth/jira?state=${state}`;
+    return `${PUBLIC_BASE_URL}/auth/jira?state=${state}`;
 }
 
 /**

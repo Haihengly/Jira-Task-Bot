@@ -1,3 +1,14 @@
+const PUBLIC_BASE_URL = (process.env.PUBLIC_BASE_URL || 'https://jirabot.kaizenops.site').trim().replace(/\/+$/, '');
+
+const ISSUE_TYPE_LABELS = {
+    'Task': 'កិច្ចការ',
+    'Bug': 'កំហុស',
+    'Story': 'រឿង',
+    'Epic': 'Epic',
+    'Sub-task': 'កិច្ចការរង',
+    'Subtask': 'កិច្ចការរង'
+};
+
 function getTodayDateString(date = new Date()) {
     const d = date instanceof Date ? date : new Date(date);
     return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
@@ -18,6 +29,65 @@ function getKhmerPriority(priorityName) {
     if (lower.includes('low')) return { emoji: '🔵', label: 'ទាប' };
 
     return { emoji: '⚪', label: 'គ្មាន' };
+}
+
+/**
+ * Get Khmer label for issue type:
+ * Task -> កិច្ចការ, Sub-task -> កិច្ចការរង, Bug -> កំហុស, Story -> រឿង, Epic -> Epic
+ * @param {Object|string} issueOrType Full issue object ({ fields: { issuetype } }) or issuetype object/string
+ * @param {Object} [options={}]
+ * @param {string|null} [options.fallback='កិច្ចការ'] Fallback when missing
+ * @param {boolean} [options.checkSubtaskFlag=true] Whether issuetype.subtask boolean forces 'កិច្ចការរង'
+ * @returns {string|null}
+ */
+function getIssueTypeLabel(issueOrType, options = {}) {
+    const { fallback = 'កិច្ចការ', checkSubtaskFlag = true } = options;
+    if (!issueOrType) return fallback;
+    const issuetype = (typeof issueOrType === 'object' && 'fields' in issueOrType)
+        ? issueOrType.fields?.issuetype
+        : issueOrType;
+    if (!issuetype) return fallback;
+    if (checkSubtaskFlag && issuetype?.subtask) return 'កិច្ចការរង';
+    const typeName = typeof issuetype === 'string' ? issuetype : issuetype?.name;
+    if (!typeName) return fallback;
+    return ISSUE_TYPE_LABELS[typeName] || typeName;
+}
+
+/**
+ * Sort issues in-place by urgency:
+ * 1. Overdue tasks first (duedate < today)
+ * 2. Upcoming tasks (duedate >= today, soonest first)
+ * 3. Tasks without a due date last
+ * Tie-breaker: issue key alphabetical
+ * @param {Array} issues
+ * @param {string} [today=getTodayDateString()]
+ * @returns {Array}
+ */
+function sortIssuesByUrgency(issues, today = getTodayDateString()) {
+    if (!Array.isArray(issues)) return issues;
+    return issues.sort((a, b) => {
+        const dueA = a.fields?.duedate;
+        const dueB = b.fields?.duedate;
+
+        const getCategory = (due) => {
+            if (!due) return 3;
+            if (due < today) return 1;
+            return 2;
+        };
+
+        const catA = getCategory(dueA);
+        const catB = getCategory(dueB);
+
+        if (catA !== catB) {
+            return catA - catB;
+        }
+
+        if (dueA && dueB) {
+            return dueA.localeCompare(dueB);
+        }
+
+        return (a.key || '').localeCompare(b.key || '');
+    });
 }
 
 /**
@@ -88,10 +158,14 @@ function escapeAttr(text) {
 }
 
 module.exports = {
+    PUBLIC_BASE_URL,
+    ISSUE_TYPE_LABELS,
     getTodayDateString,
     getCambodiaDateYMD,
     buildTaskReportCaption,
     getKhmerPriority,
+    getIssueTypeLabel,
+    sortIssuesByUrgency,
     escapeMarkdown,
     escapeHtml,
     escapeAttr

@@ -6,6 +6,8 @@ const {
     escapeHtml,
     escapeAttr,
     getKhmerPriority,
+    getIssueTypeLabel,
+    sortIssuesByUrgency,
     buildTaskReportCaption
 } = require('../utils');
 const {
@@ -281,27 +283,6 @@ function formatTaskPriorityAndDue(priorityName, dueDate, today) {
 }
 
 /**
- * Get Khmer label for issue type:
- * Task -> កិច្ចការ, Sub-task -> កិច្ចការរង, Bug -> កំហុស, Story -> រឿង, Epic -> Epic
- * @param {Object} issue
- * @returns {string}
- */
-function getIssueTypeLabel(issue) {
-    const issuetype = issue.fields?.issuetype;
-    if (issuetype?.subtask) return 'កិច្ចការរង';
-    const typeName = typeof issuetype === 'string' ? issuetype : issuetype?.name;
-    const map = {
-        'Task': 'កិច្ចការ',
-        'Bug': 'កំហុស',
-        'Story': 'រឿង',
-        'Epic': 'Epic',
-        'Sub-task': 'កិច្ចការរង',
-        'Subtask': 'កិច្ចការរង'
-    };
-    return (typeName && map[typeName]) ? map[typeName] : (typeName || 'កិច្ចការ');
-}
-
-/**
  * Handle plain-text tasks display
  */
 async function handleTasks(ctx, status) {
@@ -397,34 +378,7 @@ async function handleTasks(ctx, status) {
                 // Sort alphabetically by issue key
                 topLevelIssues.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
             } else {
-                // Sort by urgency:
-                // 1. Overdue tasks first (duedate < today)
-                // 2. Upcoming tasks (duedate >= today, soonest first)
-                // 3. Tasks without a due date last
-                // Tie-breaker: issue key alphabetical
-                topLevelIssues.sort((a, b) => {
-                    const dueA = a.fields?.duedate;
-                    const dueB = b.fields?.duedate;
-
-                    const getCategory = (due) => {
-                        if (!due) return 3;
-                        if (due < today) return 1;
-                        return 2;
-                    };
-
-                    const catA = getCategory(dueA);
-                    const catB = getCategory(dueB);
-
-                    if (catA !== catB) {
-                        return catA - catB;
-                    }
-
-                    if (dueA && dueB) {
-                        return dueA.localeCompare(dueB);
-                    }
-
-                    return (a.key || '').localeCompare(b.key || '');
-                });
+                sortIssuesByUrgency(topLevelIssues, today);
             }
 
             topLevelIssues.forEach((issue, idx) => {
@@ -466,20 +420,7 @@ async function handleTasks(ctx, status) {
                     if (isDone) {
                         rawSubtasks.sort((a, b) => (a.key || '').localeCompare(b.key || ''));
                     } else {
-                        rawSubtasks.sort((a, b) => {
-                            const dueA = a.fields?.duedate;
-                            const dueB = b.fields?.duedate;
-                            const getCat = (due) => {
-                                if (!due) return 3;
-                                if (due < today) return 1;
-                                return 2;
-                            };
-                            const catA = getCat(dueA);
-                            const catB = getCat(dueB);
-                            if (catA !== catB) return catA - catB;
-                            if (dueA && dueB) return dueA.localeCompare(dueB);
-                            return (a.key || '').localeCompare(b.key || '');
-                        });
+                        sortIssuesByUrgency(rawSubtasks, today);
                     }
 
                     rawSubtasks.forEach((subtask, sIdx) => {
