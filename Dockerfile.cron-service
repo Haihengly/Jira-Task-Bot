@@ -1,20 +1,36 @@
+# ---------------------------------------------------------------------------
+# Stage 1: install production dependencies (native build tools live here only)
+# ---------------------------------------------------------------------------
+FROM node:20-alpine AS deps
+
+WORKDIR /app
+
+# Native toolchain is only needed to build the sqlite3 addon if no prebuilt binary is available
+RUN apk add --no-cache python3 make g++ sqlite-dev
+
+COPY package*.json ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi \
+    && npm cache clean --force
+
+# ---------------------------------------------------------------------------
+# Stage 2: runtime image (no compilers, no Python)
+# ---------------------------------------------------------------------------
 FROM node:20-alpine
+
+ENV TZ=Asia/Phnom_Penh
 
 # Create app directory
 WORKDIR /app
 
-# Copy package configurations and install dependencies
+# Production node_modules built in the deps stage (sqlite3 addon included)
+COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
-RUN apk add --no-cache python3 make g++ sqlite-dev
-RUN npm install
-
-ENV TZ=Asia/Phnom_Penh
 
 # Copy application source
 COPY src/ ./src/
 
 # Create the data directory to match the volume mount point
-RUN mkdir -p /app/data && chown -R node:node /app
+RUN mkdir -p /app/data && chown node:node /app/data
 
 # Run as non-root user for security
 USER node

@@ -1,0 +1,25 @@
+# Build context for Dockerfile.cron-service is ./cron-service, so this file must live here.
+node_modules
+npm-debug.log*
+
+# Runtime data / databases (mounted read-only at /app/data)
+data
+bot-data
+*.db
+*.sqlite
+*.sqlite3
+*.pdf
+
+# Logs
+logs
+*.log
+
+# Docs, VCS, secrets, editor files
+*.md
+.git
+.gitignore
+.env
+.env.*
+.vscode
+Dockerfile*
+.dockerignore

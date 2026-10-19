@@ -1,25 +1,47 @@
+# ---------------------------------------------------------------------------
+# Stage 1: install production dependencies (native build tools live here only)
+# ---------------------------------------------------------------------------
+FROM node:20-alpine AS deps
+
+# Skip Puppeteer's bundled Chrome download; the runtime uses Alpine's Chromium
+ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
+    PUPPETEER_SKIP_DOWNLOAD=true
+
+WORKDIR /app
+
+# Native toolchain is only needed to build the sqlite3 addon if no prebuilt binary is available
+RUN apk add --no-cache python3 make g++ sqlite-dev
+
+COPY package*.json ./
+RUN if [ -f package-lock.json ]; then npm ci --omit=dev; else npm install --omit=dev; fi \
+    && npm cache clean --force
+
+# ---------------------------------------------------------------------------
+# Stage 2: runtime image (no compilers, no Python)
+# ---------------------------------------------------------------------------
 FROM node:20-alpine
 
 # Set environment variables for Puppeteer
 ENV PUPPETEER_SKIP_CHROMIUM_DOWNLOAD=true \
-    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser
+    PUPPETEER_SKIP_DOWNLOAD=true \
+    PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium-browser \
+    TZ=Asia/Phnom_Penh
+
+# Chromium + fonts (Khmer and general Noto) for PDF rendering
+RUN apk add --no-cache chromium nss freetype harfbuzz ca-certificates ttf-freefont font-noto-khmer font-noto
 
 # Create app directory
 WORKDIR /app
 
-# Copy package configurations and install dependencies
+# Production node_modules built in the deps stage (sqlite3 addon included)
+COPY --from=deps /app/node_modules ./node_modules
 COPY package*.json ./
-RUN apk add --no-cache python3 make g++ sqlite-dev chromium nss freetype harfbuzz ca-certificates ttf-freefont font-noto-khmer font-noto
-RUN npm install
-
-ENV TZ=Asia/Phnom_Penh
 
 # Copy application source
 COPY src/ ./src/
 
-# Create the data directory and ensure proper ownership
-# so the node user can write to the SQLite file
-RUN mkdir -p /app/data && chown -R node:node /app
+# Only the data directory needs to be writable by the node user (SQLite file)
+RUN mkdir -p /app/data && chown node:node /app/data
 
 # Run as non-root user for security
 USER node

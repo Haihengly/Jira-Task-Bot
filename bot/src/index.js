@@ -9,6 +9,7 @@ const { createBot } = require('./bot');
 const { startWebhookServer } = require('./webhook');
 const { getAllUsers } = require('./db/mappings');
 const { UNREGISTERED_COMMANDS, REGISTERED_COMMANDS } = require('./utils/commands');
+const { closeBrowser } = require('./pdf/generateTaskReport');
 
 async function start() {
     try {
@@ -45,8 +46,14 @@ async function start() {
         }
 
         // Graceful stop listeners
-        process.once('SIGINT', () => bot.stop('SIGINT'));
-        process.once('SIGTERM', () => bot.stop('SIGTERM'));
+        process.once('SIGINT', async () => {
+            await closeBrowser();
+            bot.stop('SIGINT');
+        });
+        process.once('SIGTERM', async () => {
+            await closeBrowser();
+            bot.stop('SIGTERM');
+        });
 
         console.log('Starting Telegram bot in polling mode...');
         bot.launch();

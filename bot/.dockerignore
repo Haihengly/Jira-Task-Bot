@@ -1,8 +1,26 @@
+# Build context for Dockerfile.bot is ./bot, so this file must live here.
 node_modules/
-.env
+npm-debug.log*
+
+# Runtime data / databases (mounted as a volume at /app/data)
 data/
+bot-data/
+*.db
+*.sqlite
+*.sqlite3
+*.pdf
+
+# Logs
+logs/
+*.log
+
+# Docs, VCS, secrets, compose/docker files, editor files
+*.md
 .git/
-README.md
-CLAUDE.md
+.gitignore
+.env
+.env.*
+.vscode/
 docker-compose.yml
-Dockerfile
+Dockerfile*
+.dockerignore

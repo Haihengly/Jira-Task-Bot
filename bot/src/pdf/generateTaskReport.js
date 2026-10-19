@@ -9,6 +9,11 @@ const dividerBase64 = fs.existsSync(dividerPath)
     : '';
 const dividerDataUri = `data:image/png;base64,${dividerBase64}`;
 
+const moulFontPath = path.join(__dirname, 'assets', 'Moul-Regular.ttf');
+const moulFontBase64 = fs.existsSync(moulFontPath)
+    ? fs.readFileSync(moulFontPath).toString('base64')
+    : '';
+
 /**
  * Convert ASCII digits (0-9) to Khmer numerals (០-៩)
  * @param {string|number} value
@@ -187,7 +192,12 @@ function formatDueDate(dueDate, isDone) {
 }
 
 const REPORT_CSS = `
-        @import url('https://fonts.googleapis.com/css2?family=Moul&family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap');
+        @font-face {
+            font-family: 'Moul';
+            font-style: normal;
+            font-weight: 400;
+            src: url('data:font/truetype;charset=utf-8;base64,${moulFontBase64}') format('truetype');
+        }
 
         * {
             box-sizing: border-box;
@@ -534,14 +544,17 @@ function buildReportHtml({ title, dateLine, metaRows, bodyHtml, totalCount }) {
 `;
 }
 
+let browserInstance = null;
+let browserPromise = null;
+
 /**
- * Launch Puppeteer and render an HTML string into a landscape A4 PDF buffer.
- * @param {string} html
- * @returns {Promise<Buffer>}
+ * Launch a dedicated headless Chromium browser instance.
+ * @returns {Promise<import('puppeteer').Browser>}
  */
-async function renderPdfFromHtml(html) {
+async function launchBrowser() {
+    const executablePath = process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser';
     const browser = await puppeteer.launch({
-        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || '/usr/bin/chromium-browser',
+        executablePath,
         headless: 'new',
         args: [
             '--no-sandbox',
@@ -552,28 +565,117 @@ async function renderPdfFromHtml(html) {
         ]
     });
 
-    try {
-        const page = await browser.newPage();
-        await page.setContent(html, {
-            waitUntil: ['load', 'domcontentloaded', 'networkidle0'],
-            timeout: 30000
+    browser.once('disconnected', () => {
+        if (browserInstance === browser) {
+            browserInstance = null;
+        }
+    });
+
+    return browser;
+}
+
+/**
+ * Get or lazily initialize the shared Puppeteer browser instance.
+ * @returns {Promise<import('puppeteer').Browser>}
+ */
+async function getBrowser() {
+    if (browserInstance && browserInstance.connected) {
+        return browserInstance;
+    }
+
+    if (browserPromise) {
+        return browserPromise;
+    }
+
+    browserPromise = launchBrowser()
+        .then((browser) => {
+            browserInstance = browser;
+            browserPromise = null;
+            return browser;
+        })
+        .catch((err) => {
+            browserInstance = null;
+            browserPromise = null;
+            throw err;
         });
 
-        const pdfResult = await page.pdf({
-            format: 'A4',
-            landscape: true,
-            printBackground: true,
-            margin: {
-                top: '15mm',
-                bottom: '15mm',
-                left: '12mm',
-                right: '12mm'
+    return browserPromise;
+}
+
+/**
+ * Gracefully close the shared Puppeteer browser instance.
+ * @returns {Promise<void>}
+ */
+async function closeBrowser() {
+    if (browserInstance) {
+        const b = browserInstance;
+        browserInstance = null;
+        browserPromise = null;
+        try {
+            await b.close();
+        } catch (_) {
+            // Ignore close error during shutdown
+        }
+    }
+}
+
+// Clean shutdown listeners
+process.once('SIGTERM', () => { closeBrowser(); });
+process.once('SIGINT', () => { closeBrowser(); });
+
+/**
+ * Render an HTML string into a landscape A4 PDF buffer using the shared Puppeteer browser.
+ * Reuses Chromium instance across calls, opening and closing one page per PDF.
+ * @param {string} html
+ * @returns {Promise<Buffer>}
+ */
+async function renderPdfFromHtml(html) {
+    let browser = await getBrowser();
+
+    const renderOnPage = async (b) => {
+        const p = await b.newPage();
+        try {
+            await p.setContent(html, {
+                waitUntil: 'load',
+                timeout: 30000
+            });
+
+            const pdfResult = await p.pdf({
+                format: 'A4',
+                landscape: true,
+                printBackground: true,
+                margin: {
+                    top: '15mm',
+                    bottom: '15mm',
+                    left: '12mm',
+                    right: '12mm'
+                }
+            });
+
+            return Buffer.from(pdfResult);
+        } finally {
+            try {
+                await p.close();
+            } catch (_) {
+                // Ignore page close error
             }
-        });
+        }
+    };
 
-        return Buffer.from(pdfResult);
-    } finally {
-        await browser.close();
+    try {
+        return await renderOnPage(browser);
+    } catch (err) {
+        // If the browser crashed or disconnected mid-operation, reset and retry once with a freshly launched browser
+        const isDisconn = !browser || !browser.connected || /disconnected|Target closed|Session closed/i.test(err.message);
+        if (isDisconn) {
+            console.warn('[PDF Renderer] Chromium disconnected or crashed, relaunching and retrying once...', err.message);
+            if (browserInstance === browser) {
+                browserInstance = null;
+            }
+            browser = await getBrowser();
+            return await renderOnPage(browser);
+        }
+        throw err;
     }
 }
 
@@ -924,6 +1026,8 @@ module.exports = {
     deduplicateAndIndexIssues,
     buildReportHtml,
     renderPdfFromHtml,
+    getBrowser,
+    closeBrowser,
     REPORT_CSS,
     formatKhmerDateText,
     toKhmerDigits,
