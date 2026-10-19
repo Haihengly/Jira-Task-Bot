@@ -27,7 +27,7 @@ const KEYBOARD_BUTTONS = {
     TASK_TODO: '📋 ត្រូវធ្វើ',
     TASK_INPROGRESS: '🔄 កំពុងធ្វើ',
     TASK_DONE: '✅ បានធ្វើរួច',
-    TASK_ALL: 'ទាំងអស់',
+    TASK_ALL: '✨​​ ទាំងអស់',
     BACK: '⬅️ ត្រឡប់ក្រោយ'
 };
 

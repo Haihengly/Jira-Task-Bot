@@ -22,7 +22,7 @@ const {
     getUserMode,
     clearUserMode
 } = require('../utils/userState');
-const { generateTaskReport, generateMultiSectionReport, KHMER_MONTH_NAMES } = require('../pdf/generateTaskReport');
+const { generateTaskReport, generateMultiSectionReport, generateMorningCronReport, KHMER_MONTH_NAMES } = require('../pdf/generateTaskReport');
 
 /**
  * Handle /mytasks command or "📋 កិច្ចការរបស់ខ្ញុំ" button
@@ -158,7 +158,7 @@ async function exportTaskPdfDirectly(ctx, status) {
 }
 
 /**
- * Export all tasks (To Do, In Progress, Done) in a single multi-section PDF report
+ * Export all tasks (To Do, In Progress, Done) in a single merged-table PDF report
  */
 async function exportAllTasksPdf(ctx) {
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
@@ -195,13 +195,17 @@ async function exportAllTasksPdf(ctx) {
             return ctx.reply('មិនមានកិច្ចការសម្រាប់ទាញយកជា PDF នោះទេ។');
         }
 
-        const sections = [
-            { status: 'To Do', issues: todoIssues || [] },
-            { status: 'In Progress', issues: inProgressIssues || [] },
-            { status: 'Done', issues: doneIssues || [] }
+        const allIssues = [
+            ...(inProgressIssues || []),
+            ...(todoIssues || []),
+            ...(doneIssues || [])
         ];
 
-        const rawPdf = await generateMultiSectionReport(sections, mapping);
+        const rawPdf = await generateMorningCronReport(allIssues, mapping, {
+            title: 'របាយការណ៍កិច្ចការទាំងអស់',
+            statusLabel: 'ត្រូវធ្វើ កំពុងធ្វើ និង បានធ្វើរួច',
+            includeResolvedDate: true
+        });
         const pdfBuffer = Buffer.from(rawPdf);
 
         const dateStr = getCambodiaDateYMD();

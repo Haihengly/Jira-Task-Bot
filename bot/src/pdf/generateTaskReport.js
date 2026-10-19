@@ -1023,10 +1023,10 @@ async function generateMultiSectionReport(sections, userMapping, options = {}) {
 }
 
 /**
- * Generate a PDF report specifically for Morning Cron (combining To Do and In Progress tasks into one unified table).
- * @param {Array} issues Jira issues (combined To Do and In Progress)
+ * Generate a PDF report combining multiple statuses into one unified table (used by Morning Cron and "All" export).
+ * @param {Array} issues Jira issues
  * @param {Object} userMapping
- * @param {Object} [options={}] { startDate, endDate }
+ * @param {Object} [options={}] { startDate, endDate, title, statusLabel, includeResolvedDate }
  * @returns {Promise<Buffer>} PDF buffer
  */
 async function generateMorningCronReport(issues, userMapping, options = {}) {
@@ -1034,6 +1034,9 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
     const displayName = userMapping.display_name || userMapping.jira_email || 'Staff';
     const email = userMapping.jira_email || '';
     const today = new Date().toISOString().slice(0, 10);
+    const reportTitle = options.title || 'របាយការណ៍កិច្ចការប្រចាំថ្ងៃ';
+    const statusLabel = options.statusLabel || 'ត្រូវធ្វើ និង កំពុងធ្វើ';
+    const includeResolvedDate = Boolean(options.includeResolvedDate);
 
     const subtaskKeys = new Set();
     issues.forEach(issue => {
@@ -1060,9 +1063,10 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
 
     const inProgressIssues = topLevelIssues.filter(issue => getStatusName(issue) === 'In Progress');
     const toDoIssues = topLevelIssues.filter(issue => getStatusName(issue) === 'To Do');
+    const doneIssues = topLevelIssues.filter(issue => getStatusName(issue) === 'Done');
     const otherIssues = topLevelIssues.filter(issue => {
         const name = getStatusName(issue);
-        return name !== 'In Progress' && name !== 'To Do';
+        return name !== 'In Progress' && name !== 'To Do' && name !== 'Done';
     });
 
     const sortByDueDate = (list) => {
@@ -1091,11 +1095,35 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
         });
     };
 
+    const sortByResolutionDate = (list) => {
+        list.sort((a, b) => {
+            const resA = a.fields?.resolutiondate;
+            const resB = b.fields?.resolutiondate;
+
+            if (resA && !resB) return -1;
+            if (!resA && resB) return 1;
+
+            if (resA && resB) {
+                const timeA = Date.parse(resA);
+                const timeB = Date.parse(resB);
+                if (!isNaN(timeA) && !isNaN(timeB) && timeA !== timeB) {
+                    return timeB - timeA;
+                }
+                if (resA !== resB) {
+                    return resB.localeCompare(resA);
+                }
+            }
+
+            return (a.key || '').localeCompare(b.key || '');
+        });
+    };
+
     sortByDueDate(inProgressIssues);
     sortByDueDate(toDoIssues);
+    sortByResolutionDate(doneIssues);
     sortByDueDate(otherIssues);
 
-    const sortedIssues = [...inProgressIssues, ...toDoIssues, ...otherIssues];
+    const sortedIssues = [...inProgressIssues, ...toDoIssues, ...doneIssues, ...otherIssues];
 
     const bodyHtml = sortedIssues.length === 0
         ? `<div style="text-align: center; padding: 40px; color: #64748b; font-size: 14px; background: #f8fafc; border-radius: 6px; border: 1px dashed #cbd5e1; margin-top: 20px;">មិនមានកិច្ចការត្រូវធ្វើ ឬកំពុងធ្វើនោះទេ</div>`
@@ -1112,6 +1140,7 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
                     <th class="col-req-by">អ្នកស្នើសុំ<span class="en-header">Request By</span></th>
                     <th class="col-handle-by">អ្នកទទួលបន្ទុក<span class="en-header">Handle By</span></th>
                     <th class="col-due">ថ្ងៃកំណត់<span class="en-header">Due Date</span></th>
+                    ${includeResolvedDate ? '<th class="col-resolved">ថ្ងៃបញ្ចប់<span class="en-header">Resolved Date</span></th>' : ''}
                 </tr>
             </thead>
             <tbody>
@@ -1120,12 +1149,14 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
                     const summary = issue.fields?.summary || 'No summary';
                     const issueUrl = baseUrl ? `${baseUrl}/browse/${issueKey}` : '#';
                     const statusObj = issue.fields?.status;
+                    const isRowDone = getStatusName(issue) === 'Done';
                     const issueType = issue.fields?.issuetype;
                     const priorityName = issue.fields?.priority?.name;
                     const created = issue.fields?.created;
                     const reporter = issue.fields?.reporter?.displayName;
                     const assignee = issue.fields?.assignee?.displayName;
                     const dueDate = issue.fields?.duedate;
+                    const resolutiondate = issue.fields?.resolutiondate;
                     const subtasks = issue.fields?.subtasks || [];
 
                     let rows = `
@@ -1140,7 +1171,8 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
                             <td class="col-req-date">${formatDate(created)}</td>
                             <td class="col-req-by">${formatText(reporter)}</td>
                             <td class="col-handle-by">${formatText(assignee)}</td>
-                            <td class="col-due">${formatDueDate(dueDate, false)}</td>
+                            <td class="col-due">${formatDueDate(dueDate, isRowDone)}</td>
+                            ${includeResolvedDate ? `<td class="col-resolved">${isRowDone ? formatDate(resolutiondate) : formatDate(null)}</td>` : ''}
                         </tr>
                     `;
 
@@ -1151,12 +1183,15 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
                             const subSummary = subtask.fields?.summary || fullSubIssue?.fields?.summary || 'No summary';
                             const subUrl = baseUrl ? `${baseUrl}/browse/${subKey}` : '#';
                             const subStatus = subtask.fields?.status || fullSubIssue?.fields?.status;
+                            const subStatusName = typeof subStatus === 'string' ? subStatus : (subStatus?.name || '');
+                            const isSubDone = subStatusName === 'Done';
                             const subIssueType = subtask.fields?.issuetype || fullSubIssue?.fields?.issuetype || 'Sub-task';
                             const subPriority = subtask.fields?.priority?.name || fullSubIssue?.fields?.priority?.name;
                             const subCreated = subtask.fields?.created || fullSubIssue?.fields?.created;
                             const subReporter = subtask.fields?.reporter?.displayName || fullSubIssue?.fields?.reporter?.displayName;
                             const subAssignee = subtask.fields?.assignee?.displayName || fullSubIssue?.fields?.assignee?.displayName;
                             const subDueDate = subtask.fields?.duedate || fullSubIssue?.fields?.duedate;
+                            const subResolutiondate = subtask.fields?.resolutiondate || fullSubIssue?.fields?.resolutiondate;
 
                             rows += `
                                 <tr class="subtask-row">
@@ -1171,7 +1206,8 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
                                     <td class="col-req-date">${formatDate(subCreated)}</td>
                                     <td class="col-req-by">${formatText(subReporter)}</td>
                                     <td class="col-handle-by">${formatText(subAssignee)}</td>
-                                    <td class="col-due">${formatDueDate(subDueDate, false)}</td>
+                                    <td class="col-due">${formatDueDate(subDueDate, isSubDone)}</td>
+                                    ${includeResolvedDate ? `<td class="col-resolved">${isSubDone ? formatDate(subResolutiondate) : formatDate(null)}</td>` : ''}
                                 </tr>
                             `;
                         });
@@ -1188,7 +1224,7 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
 <html lang="km">
 <head>
     <meta charset="UTF-8">
-    <title>របាយការណ៍កិច្ចការប្រចាំថ្ងៃ</title>
+    <title>${escapeHtml(reportTitle)}</title>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Moul&family=Noto+Sans+Khmer:wght@400;500;600;700&display=swap');
 
@@ -1332,6 +1368,15 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
             table-layout: fixed;
         }
 
+        thead {
+            display: table-header-group;
+        }
+
+        tr {
+            page-break-inside: avoid;
+            break-inside: avoid;
+        }
+
         th {
             background-color: #f8fafc;
             color: #334155;
@@ -1405,6 +1450,10 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
             width: 95px;
         }
 
+        .col-resolved {
+            width: 95px;
+        }
+
         .issue-link {
             color: #1e293b;
             text-decoration: none;
@@ -1458,7 +1507,7 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
         </div>
 
         <div class="title-block">
-            <h1>របាយការណ៍កិច្ចការប្រចាំថ្ងៃ</h1>
+            <h1>${escapeHtml(reportTitle)}</h1>
             <div class="date-line">${escapeHtml(khmerDateLine)}</div>
         </div>
 
@@ -1469,7 +1518,7 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
             </div>
             <div class="meta-item">
                 <span class="meta-label">ស្ថានភាព:</span>
-                <span class="meta-value"><strong>${escapeHtml('ត្រូវធ្វើ និង កំពុងធ្វើ')}</strong></span>
+                <span class="meta-value"><strong>${escapeHtml(statusLabel)}</strong></span>
             </div>
             <div class="meta-item">
                 <span class="meta-label">ចំនួនកិច្ចការ:</span>
