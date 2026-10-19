@@ -593,5 +593,8 @@ module.exports = {
     handleStatusSelection,
     handleBackNavigation,
     exportAllTasksPdf,
-    handleExportPdf
+    handleExportPdf,
+    formatKhmerDueDate,
+    formatTaskPriorityAndDue,
+    getIssueTypeLabel
 };

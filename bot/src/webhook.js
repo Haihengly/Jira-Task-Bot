@@ -4,9 +4,10 @@ const axios = require('axios');
 const { getMappingByJiraAccountId, getMappingByTelegramId, saveMapping } = require('./db/mappings');
 const { getRegisteredKeyboard, REGISTERED_COMMANDS } = require('./utils/commands');
 const { setPendingRegistration } = require('./commands/link');
+const { formatTaskPriorityAndDue, getIssueTypeLabel } = require('./commands/tasks');
 const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
-const { getTodayDateString, formatPriorityAndDue, escapeMarkdown } = require('./utils');
+const { getTodayDateString, escapeMarkdown, escapeHtml, escapeAttr } = require('./utils');
 const { generateMultiSectionReport, generateMorningCronReport, generateTaskReport } = require('./pdf/generateTaskReport');
 
 async function sendOAuthFailureMessage(bot, chatId, reasonText, source = 'link', customAction = null) {
@@ -29,9 +30,9 @@ function normalizeUrl(url) {
 }
 
 async function enrichIssueFields(issueKey, issueFields) {
-    if (issueKey && (!issueFields || issueFields.priority === undefined || issueFields.duedate === undefined || !issueFields.project || !issueFields.summary)) {
+    if (issueKey && (!issueFields || issueFields.priority === undefined || issueFields.duedate === undefined || !issueFields.project || !issueFields.summary || !issueFields.issuetype)) {
         try {
-            const fetched = await jiraClient.getIssueByKey(issueKey, 'summary,priority,duedate,project');
+            const fetched = await jiraClient.getIssueByKey(issueKey, 'summary,priority,duedate,project,issuetype');
             if (fetched && fetched.fields) {
                 return {
                     ...issueFields,
@@ -45,17 +46,17 @@ async function enrichIssueFields(issueKey, issueFields) {
     return issueFields;
 }
 
-async function sendNotification(bot, chatId, markdownMessage, plainMessage, logContext) {
+async function sendNotification(bot, chatId, htmlMessage, plainMessage, logContext) {
     try {
-        await bot.telegram.sendMessage(chatId, markdownMessage, {
-            parse_mode: 'Markdown',
+        await bot.telegram.sendMessage(chatId, htmlMessage, {
+            parse_mode: 'HTML',
             disable_web_page_preview: true
         });
         console.log(`Delivered ${logContext} to chat ${chatId}`);
     } catch (telegramErr) {
         console.error(`Failed to send Telegram message to chat ${chatId}:`, telegramErr.message || telegramErr);
 
-        // Fallback to plain text if Markdown parsing fails
+        // Fallback to plain text if HTML parsing fails
         try {
             await bot.telegram.sendMessage(chatId, plainMessage, {
                 disable_web_page_preview: true
@@ -682,13 +683,11 @@ function startWebhookServer(bot) {
                     const actorName = req.body.user?.displayName || 'Unknown';
                     const today = getTodayDateString();
 
-                    const priorityAndDueText = formatPriorityAndDue(priorityName, dueDate, {
-                        withPriorityLabel: true,
-                        alwaysShowDueDate: true,
-                        today
-                    });
-
-                    const formattedKey = issueUrl ? `[${issueKey}](${issueUrl})` : (issueKey || '');
+                    const typeLabel = getIssueTypeLabel({ fields: issueFields });
+                    const formattedTypeLink = issueUrl
+                        ? `<a href="${escapeAttr(issueUrl)}">${escapeHtml(typeLabel)}</a>`
+                        : escapeHtml(typeLabel);
+                    const priorityAndDueText = formatTaskPriorityAndDue(priorityName, dueDate, today);
 
                     // 1. Handle unassignment if previous assignee existed (and is different from new assignee)
                     if (assigneeItem.from && assigneeItem.from !== assigneeItem.to) {
@@ -698,17 +697,17 @@ function startWebhookServer(bot) {
                         if (mapping && mapping.chat_id) {
                             const message =
                                 `🔕 អ្នកត្រូវបានដកចេញពីកិច្ចការ!\n\n` +
-                                `🗂 ${escapeMarkdown(projectName)}\n\n` +
-                                `ដកចេញដោយ: ${escapeMarkdown(actorName)}\n\n` +
-                                `${formattedKey}: ${escapeMarkdown(summary)}\n\n` +
-                                `${priorityAndDueText}`;
+                                `🗂 ${escapeHtml(projectName)}\n\n` +
+                                `ដកចេញដោយ: ${escapeHtml(actorName)}\n\n` +
+                                `${formattedTypeLink} ៖\n` +
+                                `<pre>${escapeHtml(summary)}</pre>`;
 
                             const plainMessage =
                                 `🔕 អ្នកត្រូវបានដកចេញពីកិច្ចការ!\n\n` +
                                 `🗂 ${projectName}\n\n` +
                                 `ដកចេញដោយ: ${actorName}\n\n` +
-                                `${issueKey}: ${summary}\n\n` +
-                                `${priorityAndDueText.replace(' ⚠️ ផុតកំណត់', ' (ផុតកំណត់)')}`;
+                                `${typeLabel} ៖\n` +
+                                `${summary}`;
 
                             await sendNotification(bot, mapping.chat_id, message, plainMessage, `unassignment notification for ${issueKey}`);
                         } else {
@@ -724,17 +723,18 @@ function startWebhookServer(bot) {
                         if (mapping && mapping.chat_id) {
                             const message =
                                 `🔔 អ្នកត្រូវបានចាត់តាំងកិច្ចការថ្មី!\n\n` +
-                                `🗂 ${escapeMarkdown(projectName)}\n\n` +
-                                `ចាត់តាំងដោយ: ${escapeMarkdown(actorName)}\n\n` +
-                                `${formattedKey}: ${escapeMarkdown(summary)}\n\n` +
-                                `${priorityAndDueText}`;
+                                `🗂 ${escapeHtml(projectName)}\n\n` +
+                                `ចាត់តាំងដោយ: ${escapeHtml(actorName)}\n\n` +
+                                `${formattedTypeLink} ៖\n` +
+                                `<pre>${escapeHtml(summary)}\n${escapeHtml(priorityAndDueText)}</pre>`;
 
                             const plainMessage =
                                 `🔔 អ្នកត្រូវបានចាត់តាំងកិច្ចការថ្មី!\n\n` +
                                 `🗂 ${projectName}\n\n` +
                                 `ចាត់តាំងដោយ: ${actorName}\n\n` +
-                                `${issueKey}: ${summary}\n\n` +
-                                `${priorityAndDueText.replace(' ⚠️ ផុតកំណត់', ' (ផុតកំណត់)')}`;
+                                `${typeLabel} ៖\n` +
+                                `${summary}\n` +
+                                `${priorityAndDueText}`;
 
                             await sendNotification(bot, mapping.chat_id, message, plainMessage, `assignment notification for ${issueKey}`);
                         } else {
