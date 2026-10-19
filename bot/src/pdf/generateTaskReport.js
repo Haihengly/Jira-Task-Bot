@@ -61,7 +61,7 @@ function formatKhmerDateText(startDate = new Date(), endDate = null) {
     const start = parse(startDate) || parse(new Date());
     if (endDate) {
         const end = parse(endDate);
-        if (end) {
+        if (end && (start.day !== end.day || start.monthName !== end.monthName || start.year !== end.year)) {
             return `ចាប់ពីថ្ងៃទី ${toKhmerDigits(start.day)} ខែ ${start.monthName} ឆ្នាំ ${toKhmerDigits(start.year)} ដល់ថ្ងៃទី ${toKhmerDigits(end.day)} ខែ ${end.monthName} ឆ្នាំ ${toKhmerDigits(end.year)}`;
         }
     }
