@@ -8,7 +8,7 @@ const { formatTaskPriorityAndDue } = require('./commands/tasks');
 const { validateOAuthState, consumeOAuthState } = require('./auth/state');
 const jiraClient = require('./jira/client');
 const { PUBLIC_BASE_URL, getTodayDateString, getIssueTypeLabel, escapeMarkdown, escapeHtml, escapeAttr } = require('./utils');
-const { generateMultiSectionReport, generateMorningCronReport, generateTaskReport } = require('./pdf/generateTaskReport');
+const { generateMorningCronReport, generateTaskReport } = require('./pdf/generateTaskReport');
 
 async function sendOAuthFailureMessage(bot, chatId, reasonText, source = 'link', customAction = null) {
     if (!chatId) return;
@@ -642,17 +642,8 @@ function startWebhookServer(bot) {
                 return res.json({ totalCount: 0 });
             }
 
-            const isEveningReport = reportType === 'Evening' || (
-                sections.length === 1 && sections[0].status === 'Done'
-            );
-
-            let pdfBuffer;
-            if (isEveningReport) {
-                const today = getTodayDateString();
-                pdfBuffer = await generateTaskReport(sectionData[0].issues, 'Done', mapping, { startDate: today, endDate: today });
-            } else {
-                pdfBuffer = await generateMultiSectionReport(sectionData, mapping);
-            }
+            const today = getTodayDateString();
+            const pdfBuffer = await generateTaskReport(sectionData[0].issues, 'Done', mapping, { startDate: today, endDate: today });
 
             res.setHeader('Content-Type', 'application/pdf');
             res.send(pdfBuffer);
