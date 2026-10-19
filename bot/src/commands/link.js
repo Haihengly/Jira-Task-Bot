@@ -3,8 +3,9 @@ const { saveMapping, getMappingByTelegramId } = require('../db/mappings');
 const { REGISTERED_COMMANDS, getRegisteredKeyboard } = require('../utils/commands');
 const { createOAuthState } = require('../auth/state');
 
-// In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping }
+// In-memory store for pending confirmations: telegramUserId -> { status, chatId, accountId, email, displayName, existingMapping, expiresAt }
 const pendingRegistrations = new Map();
+const PENDING_TTL_MS = 10 * 60 * 1000; // 10 minutes
 
 function getOAuthUrl(telegramUserId, chatId, source = 'link') {
     const state = createOAuthState(telegramUserId, chatId, source);
@@ -121,19 +122,44 @@ async function handleLinkReadyCb(ctx) {
 }
 
 function setPendingRegistration(telegramUserId, params) {
-    pendingRegistrations.set(telegramUserId, params);
+    pendingRegistrations.set(String(telegramUserId), {
+        ...params,
+        expiresAt: Date.now() + PENDING_TTL_MS
+    });
 }
+
+function getValidPendingRegistration(telegramUserId) {
+    if (!telegramUserId) return null;
+    const key = String(telegramUserId);
+    const entry = pendingRegistrations.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+        pendingRegistrations.delete(key);
+        return null;
+    }
+    return entry;
+}
+
+// Periodic cleanup of expired pending registrations
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of pendingRegistrations.entries()) {
+        if (now > entry.expiresAt) {
+            pendingRegistrations.delete(key);
+        }
+    }
+}, 5 * 60 * 1000).unref();
 
 async function handleConfirmRegister(ctx) {
     await ctx.answerCbQuery().catch(() => {});
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    if (!telegramUserId || !pendingRegistrations.has(telegramUserId)) {
-        return ctx.editMessageText('មិនមានការភ្ជាប់គណនីដែលកំពុងរង់ចាំនោះទេ។ សូមប្រើ /link ម្តងទៀត។').catch(() => {});
+    const pending = getValidPendingRegistration(telegramUserId);
+    if (!pending) {
+        return ctx.editMessageText('មិនមានការភ្ជាប់គណនីដែលកំពុងរង់ចាំ ឬសំណើបានផុតកំណត់ហើយ។ សូមប្រើ /link ម្តងទៀត។').catch(() => {});
     }
 
-    const pending = pendingRegistrations.get(telegramUserId);
-    pendingRegistrations.delete(telegramUserId);
+    pendingRegistrations.delete(String(telegramUserId));
 
     try {
         await saveMapping(telegramUserId, pending.chatId, pending.accountId, pending.email, pending.displayName);
@@ -172,17 +198,19 @@ async function handleCancelRegister(ctx) {
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     if (telegramUserId) {
-        pendingRegistrations.delete(telegramUserId);
+        pendingRegistrations.delete(String(telegramUserId));
     }
 
     return ctx.editMessageText('ការភ្ជាប់គណនីត្រូវបានលុបចោល។ សូមប្រើ /link ម្តងទៀត។').catch(() => {});
 }
 
 module.exports = {
+    pendingRegistrations,
     handleLink,
     handleChangeAccount,
     handleLinkReadyCb,
     handleConfirmRegister,
     handleCancelRegister,
-    setPendingRegistration
+    setPendingRegistration,
+    getValidPendingRegistration
 };

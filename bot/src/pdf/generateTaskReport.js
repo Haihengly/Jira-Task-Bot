@@ -1,7 +1,7 @@
 const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
-const { getKhmerPriority } = require('../utils');
+const { getKhmerPriority, getTodayDateString } = require('../utils');
 
 const dividerPath = path.join(__dirname, 'assets', 'divider.png');
 const dividerBase64 = fs.existsSync(dividerPath)
@@ -175,7 +175,7 @@ function formatDate(dateStr) {
         if (isNaN(d.getTime())) {
             return `<span>${escapeHtml(dateStr)}</span>`;
         }
-        const formatted = d.toISOString().slice(0, 10);
+        const formatted = d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
         return `<span>${escapeHtml(formatted)}</span>`;
     } catch {
         return `<span>${escapeHtml(dateStr)}</span>`;
@@ -192,7 +192,7 @@ function formatDueDate(dueDate, isDone) {
     if (!dueDate) {
         return `<span style="color: #94a3b8;">គ្មាន</span>`;
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayDateString();
     const isOverdue = !isDone && dueDate < today;
     if (isOverdue) {
         return `<span style="color: #dc2626; font-weight: 600; background: #fee2e2; padding: 2px 4px; border-radius: 4px; display: inline-block;">⚠️ ហួសកំណត់ (${escapeHtml(dueDate)})</span>`;
@@ -213,7 +213,7 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
     const displayName = userMapping.display_name || userMapping.jira_email || 'Staff';
     const email = userMapping.jira_email || '';
     const isDone = status === 'Done';
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayDateString();
 
     // 1. Identify all subtasks to deduplicate from top-level rendering
     const subtaskKeys = new Set();
@@ -733,7 +733,7 @@ async function generateMultiSectionReport(sections, userMapping, options = {}) {
     const baseUrl = process.env.JIRA_BASE_URL ? process.env.JIRA_BASE_URL.replace(/\/+$/, '') : '';
     const displayName = userMapping.display_name || userMapping.jira_email || 'Staff';
     const email = userMapping.jira_email || '';
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayDateString();
 
     const now = new Date();
     const khmerDateLine = formatKhmerDateText(options.startDate || now, options.endDate);
@@ -1033,7 +1033,7 @@ async function generateMorningCronReport(issues, userMapping, options = {}) {
     const baseUrl = process.env.JIRA_BASE_URL ? process.env.JIRA_BASE_URL.replace(/\/+$/, '') : '';
     const displayName = userMapping.display_name || userMapping.jira_email || 'Staff';
     const email = userMapping.jira_email || '';
-    const today = new Date().toISOString().slice(0, 10);
+    const today = getTodayDateString();
     const reportTitle = options.title || 'របាយការណ៍កិច្ចការប្រចាំថ្ងៃ';
     const statusLabel = options.statusLabel || 'ត្រូវធ្វើ និង កំពុងធ្វើ';
     const includeResolvedDate = Boolean(options.includeResolvedDate);

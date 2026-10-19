@@ -138,7 +138,7 @@ function startWebhookServer(bot) {
                 <div style="font-family: sans-serif; text-align: center; margin-top: 50px; background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); max-width: 400px; margin-left: auto; margin-right: auto;">
                     <h1 style="color: red; font-size: 48px; margin: 0;">❌</h1>
                     <h2 style="color: #333; margin-top: 20px;">${source === 'changeaccount' ? 'ការប្ដូរគណនីបានបរាជ័យ!' : 'ការភ្ជាប់គណនីបានបរាជ័យ!'}</h2>
-                    <p style="color: #666; font-size: 16px;">បញ្ហា៖ ${escapeMarkdown(error_description || error)}</p>
+                    <p style="color: #666; font-size: 16px;">បញ្ហា៖ ${escapeHtml(error_description || error)}</p>
                     <p style="color: #666; font-size: 16px;">អ្នកអាចបិទទំព័រនេះ ហើយព្យាយាមម្តងទៀតនៅក្នុង Telegram។</p>
                 </div>
                 </body>
@@ -575,13 +575,10 @@ function startWebhookServer(bot) {
             );
 
             if (isMorningReport) {
-                let allIssues = [];
-                for (const sec of sections) {
-                    const issues = await jiraClient.getIssuesByAssigneeAndStatus(jiraAccountId, sec.status);
-                    if (Array.isArray(issues)) {
-                        allIssues.push(...issues);
-                    }
-                }
+                const sectionIssues = await Promise.all(
+                    sections.map(sec => jiraClient.getIssuesByAssigneeAndStatus(jiraAccountId, sec.status))
+                );
+                const allIssues = sectionIssues.flat().filter(Boolean);
 
                 const totalCount = allIssues.length;
                 res.setHeader('X-Total-Count', totalCount.toString());
@@ -616,7 +613,10 @@ function startWebhookServer(bot) {
                     issues = issues.filter(issue => {
                         const val = issue.fields?.[field];
                         if (!val) return false;
-                        const dateOnly = val.substring(0, 10);
+                        const d = new Date(val);
+                        const dateOnly = isNaN(d.getTime())
+                            ? val.substring(0, 10)
+                            : d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
                         if (fromStr && dateOnly < fromStr) return false;
                         if (toStr && dateOnly > toStr) return false;
                         return true;
@@ -648,7 +648,7 @@ function startWebhookServer(bot) {
 
             let pdfBuffer;
             if (isEveningReport) {
-                const today = new Date().toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
+                const today = getTodayDateString();
                 pdfBuffer = await generateTaskReport(sectionData[0].issues, 'Done', mapping, { startDate: today, endDate: today });
             } else {
                 pdfBuffer = await generateMultiSectionReport(sectionData, mapping);

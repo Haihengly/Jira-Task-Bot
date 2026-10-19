@@ -119,14 +119,33 @@ class JiraClient {
         try {
             const getCount = async (status) => {
                 const jql = `assignee = "${accountId}" AND status = "${status}"`;
-                const response = await this.client.get(`/rest/api/3/search/jql`, {
-                    params: { jql, fields: 'id', maxResults: 100 }
-                });
-                if (response.data.total !== undefined) {
-                    return response.data.total;
+                let totalCount = 0;
+                let nextPageToken = undefined;
+                const MAX_PAGES = 50;
+                let pageCount = 0;
+
+                while (pageCount < MAX_PAGES) {
+                    pageCount++;
+                    const params = { jql, fields: 'id', maxResults: 100 };
+                    if (nextPageToken) {
+                        params.nextPageToken = nextPageToken;
+                    }
+
+                    const response = await this.client.get(`/rest/api/3/search/jql`, { params });
+                    if (pageCount === 1 && typeof response.data?.total === 'number') {
+                        return response.data.total;
+                    }
+
+                    const issues = response.data?.issues || [];
+                    totalCount += issues.length;
+
+                    if (response.data?.isLast || !response.data?.nextPageToken || response.data?.nextPageToken === nextPageToken) {
+                        break;
+                    }
+                    nextPageToken = response.data.nextPageToken;
                 }
-                const issues = response.data.issues || [];
-                return issues.length;
+
+                return totalCount;
             };
 
             const [todo, inProgress, done] = await Promise.all([

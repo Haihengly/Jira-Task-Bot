@@ -6,12 +6,9 @@ function getCambodiaDateYMD(date = new Date()) {
     return `${year}${month}${day}`;
 }
 
-function getTodayDateString() {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+function getTodayDateString(date = new Date()) {
+    const d = date instanceof Date ? date : new Date(date);
+    return d.toLocaleDateString('en-CA', { timeZone: 'Asia/Phnom_Penh' });
 }
 
 function getKhmerPriority(priorityName) {

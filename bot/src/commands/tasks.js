@@ -564,7 +564,7 @@ async function handleExportPdf(ctx) {
         const pdfBuffer = Buffer.from(rawPdf);
 
         const statusClean = status.replace(/\s+/g, '_');
-        const dateStr = new Date().toISOString().slice(0, 10);
+        const dateStr = getTodayDateString();
         const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
 
         let headerStatus = status;

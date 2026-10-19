@@ -2,8 +2,31 @@ const { Markup } = require('telegraf');
 const { getMappingByTelegramId, deleteMapping } = require('../db/mappings');
 const { UNREGISTERED_COMMANDS, getUnregisteredKeyboard } = require('../utils/commands');
 
-// In-memory store for pending unregistration confirmations: telegramUserId -> { chatId, email, displayName }
+// In-memory store for pending unregistration confirmations: telegramUserId -> { chatId, email, displayName, expiresAt }
 const pendingDeletions = new Map();
+const PENDING_TTL_MS = 10 * 60 * 1000; // 10 minutes
+
+function getValidPendingDeletion(telegramUserId) {
+    if (!telegramUserId) return null;
+    const key = String(telegramUserId);
+    const entry = pendingDeletions.get(key);
+    if (!entry) return null;
+    if (Date.now() > entry.expiresAt) {
+        pendingDeletions.delete(key);
+        return null;
+    }
+    return entry;
+}
+
+// Periodic cleanup of expired pending deletions
+setInterval(() => {
+    const now = Date.now();
+    for (const [key, entry] of pendingDeletions.entries()) {
+        if (now > entry.expiresAt) {
+            pendingDeletions.delete(key);
+        }
+    }
+}, 5 * 60 * 1000).unref();
 
 async function handleDeleteAccount(ctx) {
     if (ctx.payload && ctx.payload.trim().length > 0) {
@@ -26,11 +49,12 @@ async function handleDeleteAccount(ctx) {
         const displayName = userMapping.display_name || userMapping.jira_email;
         const email = userMapping.jira_email;
 
-        // Save to pending map
-        pendingDeletions.set(telegramUserId, {
+        // Save to pending map with 10-minute TTL
+        pendingDeletions.set(String(telegramUserId), {
             chatId,
             email,
-            displayName
+            displayName,
+            expiresAt: Date.now() + PENDING_TTL_MS
         });
 
         return ctx.reply(
@@ -50,12 +74,12 @@ async function handleConfirmDeleteAccount(ctx) {
     await ctx.answerCbQuery().catch(() => {});
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    if (!telegramUserId || !pendingDeletions.has(telegramUserId)) {
-        return ctx.editMessageText('មិនមានសំណើផ្ដាច់គណនីដែលកំពុងរង់ចាំនោះទេ។').catch(() => {});
+    const pending = getValidPendingDeletion(telegramUserId);
+    if (!pending) {
+        return ctx.editMessageText('មិនមានសំណើផ្ដាច់គណនីដែលកំពុងរង់ចាំ ឬសំណើបានផុតកំណត់ហើយ។').catch(() => {});
     }
 
-    const pending = pendingDeletions.get(telegramUserId);
-    pendingDeletions.delete(telegramUserId);
+    pendingDeletions.delete(String(telegramUserId));
 
     try {
         // 1. Delete mapping from database
@@ -86,13 +110,15 @@ async function handleCancelDeleteAccount(ctx) {
 
     const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
     if (telegramUserId) {
-        pendingDeletions.delete(telegramUserId);
+        pendingDeletions.delete(String(telegramUserId));
     }
 
     return ctx.editMessageText('ការផ្ដាច់គណនីត្រូវបានលុបចោល។').catch(() => {});
 }
 
 module.exports = {
+    pendingDeletions,
+    getValidPendingDeletion,
     handleDeleteAccount,
     handleConfirmDeleteAccount,
     handleCancelDeleteAccount

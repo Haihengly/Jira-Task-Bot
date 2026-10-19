@@ -7,7 +7,7 @@ const cron = require('node-cron');
 const { Telegraf } = require('telegraf');
 const axios = require('axios');
 const { getAllRegisteredUsers } = require('./db');
-const { escapeMarkdown, getCambodiaDateYMD } = require('./formatting');
+const { escapeMarkdown, getCambodiaDateYMD, getTodayDateString } = require('./formatting');
 
 const botToken = process.env.TELEGRAM_BOT_TOKEN;
 if (!botToken) {
@@ -114,7 +114,7 @@ async function sendReminders(jobName, sections, targetUserId = null) {
 
             // Message 2: PDF Document with caption
             const pdfBuffer = Buffer.from(response.data);
-            const dateStr = new Date().toISOString().slice(0, 10);
+            const dateStr = getTodayDateString();
             const filename = `Jira_Tasks_${jobName}_${dateStr}.pdf`;
             const caption = isMorning
                 ? `${ymd}_របាយការណ៍កិច្ចការត្រូវធ្វើនិងកំពុងធ្វើ`
