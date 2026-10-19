@@ -20,35 +20,6 @@ function getKhmerPriority(priorityName) {
     return { emoji: '⚪', label: 'គ្មាន' };
 }
 
-function formatDueDate(dueDateStr) {
-    if (!dueDateStr) return null;
-    const [year, month, day] = dueDateStr.split('-').map(Number);
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    if (!month || isNaN(month) || month < 1 || month > 12) return dueDateStr;
-    return `${monthNames[month - 1]} ${day}`;
-}
-
-function formatPriorityAndDue(priorityName, dueDate, options = {}) {
-    const {
-        withPriorityLabel = false,
-        today = getTodayDateString(),
-        alwaysShowDueDate = false
-    } = options;
-    const { emoji, label } = getKhmerPriority(priorityName);
-    const formattedDueDate = formatDueDate(dueDate);
-    const isOverdue = dueDate && dueDate < today;
-
-    let dueText = '';
-    if (formattedDueDate) {
-        dueText = ` | ថ្ងៃកំណត់៖ ${formattedDueDate}${isOverdue ? ' ⚠️ ផុតកំណត់' : ''}`;
-    } else if (alwaysShowDueDate) {
-        dueText = ` | ថ្ងៃកំណត់៖ គ្មាន`;
-    }
-
-    const priorityText = withPriorityLabel ? `អតិភាព: ${label}` : label;
-    return `${emoji} ${priorityText}${dueText}`;
-}
-
 /**
  * Format current date in Cambodia local time (UTC+7) as YYYYMMDD string.
  * @param {Date|string} [date=new Date()]
@@ -121,8 +92,6 @@ module.exports = {
     getCambodiaDateYMD,
     buildTaskReportCaption,
     getKhmerPriority,
-    formatDueDate,
-    formatPriorityAndDue,
     escapeMarkdown,
     escapeHtml,
     escapeAttr

@@ -9,15 +9,13 @@ const {
 } = require('./commands/link');
 const { handleDeleteAccount, handleConfirmDeleteAccount, handleCancelDeleteAccount } = require('./commands/deleteaccount');
 const {
-    handleTasks,
     handleMyTasks,
     handlePdfHub,
     handlePdfByStatus,
     handlePdfDateRange,
     handleStatusSelection,
     handleBackNavigation,
-    exportAllTasksPdf,
-    handleExportPdf
+    exportAllTasksPdf
 } = require('./commands/tasks');
 const { handleMyAccount } = require('./commands/myaccount');
 const { handleHelp, getStartMessage, getRegisteredStartMessage } = require('./commands/help');
@@ -99,7 +97,6 @@ function createBot() {
                 callbackData === 'cancel_register' ||
                 callbackData === 'confirm_delete_account' ||
                 callbackData === 'cancel_delete_account' ||
-                callbackData.startsWith('export_pdf_') ||
                 callbackData.startsWith('link_ready:')
             ) {
                 return next();
@@ -224,9 +221,6 @@ function createBot() {
 
     // Handle initial link readiness callback
     bot.action(/^link_ready:(.+)$/, handleLinkReadyCb);
-
-    // Handle PDF export callback
-    bot.action(/^export_pdf_(.+)$/, handleExportPdf);
 
     // Fallback handler for unrecognized messages (text, photos, voice notes, stickers, documents, etc.)
     // Placed after all command handlers so it only fires when nothing else matched

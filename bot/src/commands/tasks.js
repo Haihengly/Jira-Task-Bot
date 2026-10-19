@@ -3,8 +3,6 @@ const { getMappingByTelegramId } = require('../db/mappings');
 const {
     getTodayDateString,
     getCambodiaDateYMD,
-    formatPriorityAndDue,
-    escapeMarkdown,
     escapeHtml,
     escapeAttr,
     getKhmerPriority,
@@ -22,7 +20,7 @@ const {
     getUserMode,
     clearUserMode
 } = require('../utils/userState');
-const { generateTaskReport, generateMultiSectionReport, generateMorningCronReport, KHMER_MONTH_NAMES } = require('../pdf/generateTaskReport');
+const { generateTaskReport, generateMorningCronReport, KHMER_MONTH_NAMES } = require('../pdf/generateTaskReport');
 
 /**
  * Handle /mytasks command or "📋 កិច្ចការរបស់ខ្ញុំ" button
@@ -528,72 +526,15 @@ async function handleTasks(ctx, status) {
     }
 }
 
-/**
- * Handle callback query for export_pdf inline button (kept for backwards compatibility)
- */
-async function handleExportPdf(ctx) {
-    const match = ctx.match;
-    const status = match ? match[1] : null;
-
-    if (!status) {
-        return ctx.answerCbQuery('Status not found.').catch(() => {});
-    }
-
-    const telegramUserId = ctx.from?.id ? ctx.from.id.toString() : null;
-    if (!telegramUserId) {
-        return ctx.answerCbQuery('User ID not found.').catch(() => {});
-    }
-
-    try {
-        await ctx.answerCbQuery('កំពុងបង្កើត PDF... (Generating PDF...)');
-        await ctx.sendChatAction('upload_document');
-
-        const mapping = await getMappingByTelegramId(telegramUserId);
-        if (!mapping || !mapping.jira_account_id) {
-            return ctx.reply('សូមភ្ជាប់គណនី Jira របស់អ្នកជាមុនសិន ដោយប្រើ /link');
-        }
-
-        const fields = 'summary,status,assignee,priority,duedate,project,subtasks';
-        const issues = await jiraClient.getIssuesByAssigneeAndStatus(mapping.jira_account_id, status, fields);
-
-        if (!issues || issues.length === 0) {
-            return ctx.reply('មិនមានកិច្ចការសម្រាប់ទាញយកជា PDF នោះទេ។');
-        }
-
-        const rawPdf = await generateTaskReport(issues, status, mapping);
-        const pdfBuffer = Buffer.from(rawPdf);
-
-        const statusClean = status.replace(/\s+/g, '_');
-        const dateStr = getTodayDateString();
-        const filename = `Jira_Tasks_${statusClean}_${dateStr}.pdf`;
-
-        let headerStatus = status;
-        if (status === 'To Do') headerStatus = 'ត្រូវធ្វើ (To Do)';
-        else if (status === 'In Progress') headerStatus = 'កំពុងធ្វើ (In Progress)';
-        else if (status === 'Done') headerStatus = 'បានធ្វើរួច (Done)';
-
-        return ctx.replyWithDocument(
-            { source: pdfBuffer, filename },
-            { caption: `📄 របាយការណ៍កិច្ចការ: ${headerStatus}` }
-        );
-    } catch (error) {
-        console.error('Error exporting PDF:', error);
-        return ctx.reply('មានបញ្ហាក្នុងការបង្កើត PDF។ សូមព្យាយាមម្តងទៀតនៅពេលក្រោយ។');
-    }
-}
-
 module.exports = {
     handleTasks,
     handleMyTasks,
     handlePdfHub,
     handlePdfByStatus,
-    handlePdfToday: handlePdfByStatus,
-    handlePdfAll: handlePdfByStatus,
     handlePdfDateRange,
     handleStatusSelection,
     handleBackNavigation,
     exportAllTasksPdf,
-    handleExportPdf,
     formatKhmerDueDate,
     formatTaskPriorityAndDue,
     getIssueTypeLabel

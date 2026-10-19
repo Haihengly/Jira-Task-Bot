@@ -25,13 +25,6 @@ services:
     depends_on:
       - bot
 
-  # set up a reverse proxy to expose the bot service to the internet
-  # cloudflared:
-  #   image: cloudflare/cloudflared:latest
-  #   volumes:
-  #     - ~/.cloudflared:/home/nonroot/.cloudflared
-  #   restart: unless-stopped
-
   cloudflared:
     image: cloudflare/cloudflared:latest
     volumes:

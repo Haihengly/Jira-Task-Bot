@@ -233,16 +233,6 @@ async function generateTaskReport(issues, status, userMapping, options = {}) {
     const topLevelIssues = issues.filter(issue => !subtaskKeys.has(issue.key));
 
     const now = new Date();
-    const formattedDate = now.toLocaleString('en-US', {
-        timeZone: 'Asia/Phnom_Penh',
-        year: 'numeric',
-        month: 'short',
-        day: '2-digit',
-        hour: '2-digit',
-        minute: '2-digit',
-        hour12: true
-    }) + ' (UTC+7)';
-
     const khmerDateLine = formatKhmerDateText(options.startDate || now, options.endDate);
 
     let headerStatus = status;
